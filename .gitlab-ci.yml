@@ -1,0 +1,154 @@
+variables:
+  GIT_STRATEGY: fetch
+  GIT_DEPTH: 1
+
+stages:
+  - preparation
+  - test
+  - deploy
+
+# -----------------------    preparation stage   -----------------------
+composer:
+  image:
+    name: composer:2
+    pull_policy: if-not-present
+  stage: preparation
+  script:
+    - composer install --prefer-dist --no-ansi --no-interaction --no-progress --ignore-platform-reqs
+  cache:
+    key: "composer-commit-{$CI_COMMIT_REF_SLUG}-cache-key"
+    paths:
+      - vendor/
+  artifacts:
+    expire_in: 60 minutes
+    paths:
+      - vendor/
+
+npm:
+  image:
+    name: node:lts-alpine
+    pull_policy: if-not-present
+  stage: preparation
+  script:
+    - npm install
+  cache:
+    key: "npm-commit-${CI_COMMIT_REF_SLUG}-cache-key"
+    paths:
+      - node_modules/
+  artifacts:
+    expire_in: 60 minutes
+    paths:
+      - node_modules/
+
+#front-build:
+#  image:
+#    name: node:lts-alpine
+#    pull_policy: if-not-present
+#  stage: preparation
+#  dependencies:
+#    - npm
+#  needs:
+#    - npm
+#  script:
+#    - npm run build
+#  artifacts:
+#    expire_in: 60 minutes
+#    paths:
+#      - public/build
+#      - bootstrap/ssr
+
+# -----------------------    test stage    -----------------------
+optimize:
+  image:
+    name: irapardaz/php8.1-cicd-alpine:3.16
+    pull_policy: if-not-present
+  stage: test
+  dependencies:
+    - composer
+  needs:
+    - composer
+  script:
+    - php artisan optimize
+
+php-code-style:
+  image:
+    name: php:8.1-cli-alpine3.16
+    pull_policy: if-not-present
+  stage: test
+  dependencies:
+    - composer
+  needs:
+    - composer
+  script:
+    - "./vendor/bin/phpcs --standard=./phpcs.xml"
+
+larastan:
+  image:
+    name: php:8.1-cli-alpine3.16
+    pull_policy: if-not-present
+  stage: test
+  dependencies:
+    - composer
+  needs:
+    - composer
+  script:
+    - ./vendor/bin/phpstan analyse -c phpstan.neon --memory-limit 1G
+
+#phpunit-with-coverage:
+#  image:
+#    name: irapardaz/php8.1-cicd-alpine:3.16
+#    pull_policy: if-not-present
+#  stage: test
+#  dependencies:
+#    - composer
+#  needs:
+#    - composer
+#  variables:
+#    XDEBUG_MODE: coverage
+#  coverage: '/^\s*Lines:\s*\d+.\d+\%/'
+#  script:
+#    - cp .env.testing.example .env.testing
+#    - nohup redis-server </dev/null >/dev/null 2>&1 &
+#    - php artisan test --parallel --coverage-text
+#  only:
+#    - main
+
+#phpunit:
+#  image:
+#    name: irapardaz/php8.1-cicd-alpine:3.16
+#    pull_policy: if-not-present
+#  stage: test
+#  dependencies:
+#    - composer
+#  needs:
+#    - composer
+#  script:
+#    - cp .env.testing.example .env.testing
+#    - nohup redis-server </dev/null >/dev/null 2>&1 &
+#    - php artisan test --parallel
+#  except:
+#    - main
+
+#eslint:
+#  image:
+#    name: node:lts-alpine
+#    pull_policy: if-not-present
+#  stage: test
+#  dependencies:
+#    - npm
+#  needs:
+#    - npm
+#  script:
+#    - npm run lint
+
+eslint:
+  image:
+    name: node:lts-alpine
+    pull_policy: if-not-present
+  stage: test
+  dependencies:
+    - npm
+  needs:
+    - npm
+  script:
+    - npm run lint
