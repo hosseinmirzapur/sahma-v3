@@ -96,7 +96,6 @@ class SubmitFileToOcrJob implements ShouldQueue
             $ocrResult = $this->aiService->submitToOcr($filePath, $isImage);
             Log::info("OCR Completed for entityGroup #{$this->entityGroup->id}");
 
-            // Download and store the OCR-generated searchable PDF
             $downloadedFile = $this->aiService->downloadSearchableFile(strval($ocrResult['pdf_link']));
             $OCRLocation = dirname(
                 $this->entityGroup->file_location
