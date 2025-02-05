@@ -9,6 +9,7 @@ use App\Models\LetterReply;
 use App\Models\LetterSign;
 use App\Models\User;
 use Exception;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -104,7 +105,7 @@ class LetterService
         }
 
         // Validate receiver user IDs in bulk
-        $validReceiverIds = User::whereIn('id', $receiverUserIds)->pluck('id')->toArray();
+        $validReceiverIds = User::query()->whereIn('id', $receiverUserIds)->pluck('id')->toArray();
         if (count($validReceiverIds) !== count($receiverUserIds)) {
             throw ValidationException::withMessages(['message' => 'کاربر گیرنده معتبر نیست!']);
         }
@@ -180,8 +181,7 @@ class LetterService
         User $user,
         bool $isArchivedList = true,
         bool $isDeletedList = true
-    ): array
-    {
+    ): array {
         return Letter::query()
             ->select('letters.*')
             ->join('letter_inboxes', 'letter_inboxes.letter_id', '=', 'letters.id')
@@ -197,12 +197,12 @@ class LetterService
     }
 
     /**
-     * @param $query
+     * @param Builder $query
      * @param bool $isArchivedList
      * @param bool $isDeletedList
      * @return void
      */
-    private function applyArchiveOrDeleteFilters($query, bool $isArchivedList, bool $isDeletedList): void
+    private function applyArchiveOrDeleteFilters(Builder $query, bool $isArchivedList, bool $isDeletedList): void
     {
         if ($isArchivedList) {
             $query->orWhere('letters.status', Letter::STATUS_ACHIEVED);
@@ -266,7 +266,7 @@ class LetterService
                     ->first(),
                 function ($referInfo) {
                     return [
-                        'referrerUser' => $referInfo->referrerUser?->name,
+                        'referrerUser' => $referInfo->referrerUser->name ?? null,
                         'referDescription' => $referInfo?->refer_description,
                     ];
                 }
