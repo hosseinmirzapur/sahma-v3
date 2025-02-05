@@ -15,7 +15,7 @@ class DepartmentController extends Controller
 {
     public function index(Request $request): Response|ResponseFactory
     {
-      /* @var  User $user */
+        /* @var  User $user */
         $user = $request->user();
 
         if (!$user->is_super_admin) {
@@ -27,10 +27,10 @@ class DepartmentController extends Controller
     public function create(Request $request): RedirectResponse
     {
         $request->validate([
-        'departmentName' => 'required|string'
+            'departmentName' => ['required', 'string']
         ]);
 
-      /* @var  User $user */
+        /* @var  User $user */
         $user = $request->user();
 
         if (!$user->is_super_admin) {
@@ -41,16 +41,14 @@ class DepartmentController extends Controller
         DB::transaction(function () use ($departmentName, $user) {
 
             $department = Department::query()->create([
-            'name' => $departmentName,
-            'created_by' => $user->id
+                'name' => $departmentName,
+                'created_by' => $user->id
             ]);
 
             DepartmentUser::query()->create([
-            'user_id' => $user->id,
-            'department_id' => $department->id
+                'user_id' => $user->id,
+                'department_id' => $department->id
             ]);
-
-          /* TODO add activity log*/
         }, 3);
 
         return redirect()->back();
@@ -59,10 +57,10 @@ class DepartmentController extends Controller
     public function edit(Request $request, Department $department): RedirectResponse
     {
         $request->validate([
-        'departmentName' => 'required|string'
+            'departmentName' => 'required|string'
         ]);
 
-      /* @var  User $user */
+        /* @var  User $user */
         $user = $request->user();
 
         if (!$user->is_super_admin) {
@@ -72,14 +70,12 @@ class DepartmentController extends Controller
         $department->name = strval($request->input('departmentName'));
         $department->save();
 
-      /* TODO add activity log*/
-
         return redirect()->back();
     }
 
     public function delete(Request $request, Department $department): RedirectResponse
     {
-      /* @var  User $user */
+        /* @var  User $user */
         $user = $request->user();
 
         if (!$user->is_super_admin) {
@@ -87,8 +83,6 @@ class DepartmentController extends Controller
         }
 
         $department->delete();
-
-      /* TODO add activity log*/
 
         return redirect()->back();
     }
