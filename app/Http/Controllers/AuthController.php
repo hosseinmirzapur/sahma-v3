@@ -22,58 +22,68 @@ class AuthController extends Controller
         return redirect()->route('web.user.cartable.inbox.list');
     }
 
-  /**
-   * @return Response|ResponseFactory
-   */
     public function loginPage(): Response|ResponseFactory
     {
         return inertia('Auth/Login');
     }
 
-  /**
-   * @throws ValidationException
-   * @throws Exception
-   */
+    /**
+     * @throws ValidationException
+     * @throws Exception
+     */
     public function loginAction(Request $request): RedirectResponse
     {
-        $request->validate([
-        'username' => 'required|string',
-        'password' => 'required|string|max:72'
+        $validated = $request->validate([
+            'username' => 'required|string',
+            'password' => 'required|string|max:72'
         ]);
-        $userName = strval($request->input('username'));
-        $password = strval($request->input('password'));
 
-        $user = User::query()->where('personal_id', $userName)->first();
-        if (is_null($user)) {
-            throw ValidationException::withMessages(['message' => 'کاربری با این شناسه وجود ندارد.']);
-        }
-        if ($user->deleted_at != null) {
-            throw ValidationException::withMessages(['message' => 'مجوز ورود به سیستم را ندارید.']);
-        }
-        if (Hash::check($password, strval($user->password))) {
-            if (!str_starts_with(strval($user->password), '$argon2id$')) {
-                $user->password = Hash::make($password);
-                $user->save();
-            }
-            $activityService = app()->make(ActivityService::class);
-            $description = "کاربر {$user->name} وارد سیستم شد.";
-            $activityService->logUserAction($user, Activity::TYPE_LOGIN, $user, $description);
-            Auth::guard('web')->login($user);
-            return redirect()->route('web.user.cartable.inbox.list');
-        } else {
+        $user = User::query()
+            ->where('personal_id', $validated['username'])
+            ->first();
+
+        abort_if(!$user, 422, 'کاربری با این شناسه وجود ندارد.');
+        abort_if($user->deleted_at !== null, 403, 'مجوز ورود به سیستم را ندارید.');
+
+        if (!Hash::check(strval($validated['password']), strval($user->password))) {
             throw ValidationException::withMessages(['message' => 'رمز عبور اشتباه است.']);
         }
+
+        // Rehash password if needed (more secure than manually checking $argon2id)
+        if (password_needs_rehash(strval($user->password), PASSWORD_ARGON2ID)) {
+            $user->update(['password' => Hash::make($validated['password'])]);
+        }
+
+        app(ActivityService::class)->logUserAction(
+            $user,
+            Activity::TYPE_LOGIN,
+            $user,
+            "کاربر $user->name وارد سیستم شد."
+        );
+
+        Auth::guard('web')->login($user);
+        return redirect()->route('web.user.cartable.inbox.list');
     }
 
     public function logout(Request $request, ActivityService $activityService): RedirectResponse
     {
-      /* @var User $user */
+        /** @var User $user */
         $user = $request->user();
-        Redis::connection('cache')->hset('logged-out-users-today', strval($user->id), strval(now()->timestamp));
 
-        $description = "کاربر {$user->name} از سیستم خارج شد.";
-      /** @phpstan-ignore-next-line */
-        $activityService->logUserAction($user, Activity::TYPE_LOGOUT, $user, $description);
+        Redis::connection('cache')
+            ->client()
+            ->hset(
+                'logged-out-users-today',
+                (string)$user->id,
+                (string)now()->timestamp
+            );
+
+        $activityService->logUserAction(
+            $user,
+            Activity::TYPE_LOGOUT,
+            $user,
+            "کاربر $user->name از سیستم خارج شد."
+        );
 
         Auth::guard('web')->logout();
         return redirect()->route('web.user.login-page');

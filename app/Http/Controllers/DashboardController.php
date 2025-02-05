@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\SearchActionRequest;
 use App\Models\EntityGroup;
 use App\Models\Folder;
 use App\Models\User;
@@ -13,7 +14,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
-use Inertia\Inertia;
 use Inertia\Response;
 use Inertia\ResponseFactory;
 use Morilog\Jalali\Jalalian;
@@ -21,15 +21,15 @@ use Throwable;
 
 class DashboardController extends Controller
 {
-  /**
-   *
-   * @param Request $request
-   * @return Response|ResponseFactory
-   * @throws Exception
-   */
+    /**
+     *
+     * @param Request $request
+     * @return Response|ResponseFactory
+     * @throws Exception
+     */
     public function dashboard(Request $request): Response|ResponseFactory
     {
-      /** @var User|null $user */
+        /** @var User|null $user */
         $user = $request->user();
 
         if ($user === null) {
@@ -37,34 +37,41 @@ class DashboardController extends Controller
         }
 
         $rootFolders = Folder::query()
-        ->whereNull('parent_folder_id')
-        ->whereNull('deleted_at')
-        ->whereNull('archived_at')
-        ->get()->map(function (Folder $folder) {
-            return [
-            'id' => $folder->id,
-            'name' => $folder->name,
-            'slug' => $folder->getFolderId()
-            ];
-        });
+            ->select(['id', 'name'])
+            ->whereNull(['parent_folder_id', 'deleted_at', 'archived_at'])
+            ->get()
+            ->map(function (Folder $folder) {
+                return [
+                    'id' => $folder->id,
+                    'name' => $folder->name,
+                    'slug' => $folder->getFolderId()
+                ];
+            });
 
-      /** @var EntityGroup[]|Collection $entityGroups */
+        /** @var EntityGroup[]|Collection $entityGroups */
         $entityGroups = $user->queryDepartmentFiles(null)
-        ->whereNull('entity_groups.parent_folder_id')
-        ->whereNull('entity_groups.deleted_at')
-        ->whereNull('entity_groups.archived_at')
-        ->distinct()
-        ->get();
+            ->whereNull('entity_groups.parent_folder_id')
+            ->whereNull('entity_groups.deleted_at')
+            ->whereNull('entity_groups.archived_at')
+            ->select([
+                'entity_groups.id',
+                'entity_groups.name',
+                'entity_groups.type',
+                'entity_groups.status',
+                'entity_groups.description',
+            ])
+            ->distinct()
+            ->get();
 
         $files = $entityGroups->map(function (EntityGroup $entityGroup) {
             return [
-            'id' => $entityGroup->id,
-            'name' => $entityGroup->name,
-            'type' => $entityGroup->type,
-            'status' => $entityGroup->status,
-            'slug' => $entityGroup->getEntityGroupId(),
-            'description' => $entityGroup->description,
-            'parentSlug' => optional($entityGroup->parentFolder)->getFolderId()/** @phpstan-ignore-line */
+                'id' => $entityGroup->id,
+                'name' => $entityGroup->name,
+                'type' => $entityGroup->type,
+                'status' => $entityGroup->status,
+                'slug' => $entityGroup->getEntityGroupId(),
+                'description' => $entityGroup->description,
+                'parentSlug' => optional($entityGroup->parentFolder)->getFolderId()/** @phpstan-ignore-line */
             ];
         })->toArray();
 
@@ -72,14 +79,14 @@ class DashboardController extends Controller
         session()->forget('zipFileInfo');
 
         return inertia('Dashboard/DocManagement/index', [
-          'folders' => $rootFolders,
-          'files' => $files,
-          'breadcrumbs' => null,
-          'zipFileInfo' => json_decode($zipFileInfo, true)
+            'folders' => $rootFolders,
+            'files' => $files,
+            'breadcrumbs' => null,
+            'zipFileInfo' => json_decode($zipFileInfo, true)
         ]);
     }
 
-    public function searchForm(Request $request): Response|ResponseFactory
+    public function searchForm(): Response|ResponseFactory
     {
         $extensions = [];
         $mimeTypes = (array)config('mime-type');
@@ -87,35 +94,18 @@ class DashboardController extends Controller
             $extensions[$category] = array_keys((array)$subArray);
         }
         return inertia('Dashboard/DocManagement/SearchPage', [
-        'files' => ['empty'],
-        'extensions' => $extensions
+            'files' => ['empty'],
+            'extensions' => $extensions
         ]);
     }
 
-  /**
-   * @throws Exception
-   */
-    public function searchAction(Request $request): Response|ResponseFactory
+    /**
+     * @throws Exception
+     */
+    public function searchAction(SearchActionRequest $request): Response|ResponseFactory
     {
-        $extensions = [];
-        $mimeTypes = (array)config('mime-type');
-        foreach ($mimeTypes as $category => $subArray) {
-            $extensions = array_merge($extensions, array_keys((array)$subArray));
-        }
-        $request->validate([
-        'fileStatus' => 'nullable|string|in:all,transcribed,not_transcribed',
-        'fileType' => 'nullable|string|in:all,image,voice,video,book,office',
-        'fileExtension' => 'nullable|array|',
-        'fileExtension,*' => 'string|in:all,' . implode(',', $extensions),
-        'searchable_text' => 'nullable|string',
-        'departments' => 'nullable|array|',
-        'departments.*' => 'integer',
-        'fileName' => 'nullable|string',
-        'adminType' => 'nullable|string|in:all,owner,other,identifier',
-        'adminIdentifier' => 'nullable|string',
-        'fromDate' => 'nullable|regex:/[0-9]{4}-[0-9]{2}-[0-9]{2}/',
-        'toDate' => 'nullable|regex:/[0-9]{4}-[0-9]{2}-[0-9]{2}/',
-        ]);
+        // included validation on its own file
+        $request->validated();
 
         $fileStatus = strval($request->input('fileStatus'));
         $fileType = strval($request->input('fileType'));
@@ -128,20 +118,26 @@ class DashboardController extends Controller
 
         $user = $request->user();
 
-        $entityGroups = EntityGroup::query()->select('entity_groups.*')
-        ->join(
-            'department_files',
-            'department_files.entity_group_id',
-            '=',
-            'entity_groups.id'
-        )->whereNull('entity_groups.deleted_at')->distinct();
+        $entityGroups = EntityGroup::query()
+            ->select('entity_groups.*')
+            ->join(
+                'department_files',
+                'department_files.entity_group_id',
+                '=',
+                'entity_groups.id'
+            )
+            ->whereNull('entity_groups.deleted_at')
+            ->distinct();
 
         if (!empty($departments)) {
             $entityGroups = $entityGroups->whereIn('department_files.department_id', $departments);
         }
 
         $entityGroups = match ($fileStatus) {
-            'transcribed' => $entityGroups->where('entity_groups.status', EntityGroup::STATUS_TRANSCRIBED),
+            'transcribed' => $entityGroups->where(
+                'entity_groups.status',
+                EntityGroup::STATUS_TRANSCRIBED,
+            ),
             'not_transcribed' => $entityGroups->where(
                 'entity_groups.status',
                 '<>',
@@ -161,7 +157,8 @@ class DashboardController extends Controller
         if (!empty($fileExtensions)) {
             $entityGroups->where(function ($query) use ($fileExtensions) {
                 foreach ($fileExtensions as $extension) {
-                    $query->orWhere('name', 'LIKE', "%.{$extension}"); /** @phpstan-ignore-line */
+                    $extension = strval($extension);
+                    $query->orWhere('name', 'LIKE', "%.$extension");
                 }
             });
         }
@@ -193,22 +190,21 @@ class DashboardController extends Controller
                     '=',
                     'entity_groups.user_id'
                 )->where('users.name', 'LIKE', "%$adminIdentifier%")
-                ->orWhere('personal_id', 'LIKE', "%$adminIdentifier%"),
+                    ->orWhere('personal_id', 'LIKE', "%$adminIdentifier%"),
                 default => throw ValidationException::withMessages(['message' => 'unsupported identifier admin.'])
             };
         }
         $entityGroups = $entityGroups->distinct()->get();
-        $files = [];
-        foreach ($entityGroups as $entityGroup) {
-            $files [] = [
-            'id' => $entityGroup->id,
-            'name' => $entityGroup->name,
-            'type' => $entityGroup->type,
-            'status' => $entityGroup->status,
-            'slug' => $entityGroup->getEntityGroupId(),
-            'searchable_text' => $searchableText
+        $files = $entityGroups->map(function (EntityGroup $eg) use ($searchableText) {
+            return [
+                'id' => $eg->id,
+                'name' => $eg->name,
+                'type' => $eg->type,
+                'status' => $eg->status,
+                'slug' => $eg->getEntityGroupId(),
+                'searchable_text' => $searchableText
             ];
-        }
+        });
 
         $extensions = [];
         $mimeTypes = (array)config('mime-type');
@@ -219,24 +215,24 @@ class DashboardController extends Controller
         return inertia(
             'Dashboard/DocManagement/SearchPage',
             [
-            'files' => $files,
-            'searchableText' => $searchableText,
-            'extensions' => $extensions
+                'files' => $files,
+                'searchableText' => $searchableText,
+                'extensions' => $extensions
             ]
         );
     }
 
-  /**
-   * @throws Throwable
-   */
+    /**
+     * @throws Throwable
+     */
     public function copy(Request $request, DashboardUtilityService $utilityService): RedirectResponse
     {
         $request->validate([
-        'folders' => 'nullable|array',
-        'folders.*' => 'integer',
-        'files' => 'nullable|array',
-        'files.*' => 'integer',
-        'destinationFolder' => 'nullable|integer',
+            'folders' => 'nullable|array',
+            'folders.*' => 'integer',
+            'files' => 'nullable|array',
+            'files.*' => 'integer',
+            'destinationFolder' => 'nullable|integer',
         ]);
 
         $user = $request->user();
@@ -268,22 +264,23 @@ class DashboardController extends Controller
                 $folderId == null ? null : strval($folderId)
             );
         }
+
         return redirect($folderId ?
-          $utilityService->getRedirectRouteAfterOperation($folderId) : /** @phpstan-ignore-line */
-          route('web.user.dashboard.index'));
+            $utilityService->getRedirectRouteAfterOperation($folderId) : /** @phpstan-ignore-line */
+            route('web.user.dashboard.index'));
     }
 
-  /**
-   * @throws Throwable
-   */
+    /**
+     * @throws Throwable
+     */
     public function move(Request $request, DashboardUtilityService $utilityService): RedirectResponse
     {
         $request->validate([
-        'folders' => 'nullable|array',
-        'folders.*' => 'integer',
-        'files' => 'nullable|array',
-        'files.*' => 'integer',
-        'destinationFolder' => 'nullable|integer',
+            'folders' => 'nullable|array',
+            'folders.*' => 'integer',
+            'files' => 'nullable|array',
+            'files.*' => 'integer',
+            'destinationFolder' => 'nullable|integer',
         ]);
 
         $user = $request->user();
@@ -316,21 +313,20 @@ class DashboardController extends Controller
             );
         }
         return redirect($folderId ?
-        $utilityService->getRedirectRouteAfterOperation($folderId) : /** @phpstan-ignore-line */
-        route('web.user.dashboard.index'));
+            $utilityService->getRedirectRouteAfterOperation($folderId) : /** @phpstan-ignore-line */
+            route('web.user.dashboard.index'));
     }
 
-  /**
-   * @throws ValidationException
-   * @throws BindingResolutionException
-   */
+    /**
+     * @throws ValidationException
+     */
     public function permanentDelete(Request $request, DashboardUtilityService $utilityService): RedirectResponse
     {
         $request->validate([
-        'folders' => 'nullable|array',
-        'folders.*' => 'integer',
-        'files' => 'nullable|array',
-        'files.*' => 'integer',
+            'folders' => 'nullable|array',
+            'folders.*' => 'integer',
+            'files' => 'nullable|array',
+            'files.*' => 'integer',
         ]);
 
         $user = $request->user();
@@ -341,7 +337,7 @@ class DashboardController extends Controller
 
         if (!$user->is_super_admin) {
             throw ValidationException::withMessages([
-            'message' => 'دسترسی برای حذف دائمی فقط توسط مدیر سیستم امکان پذیر هست'
+                'message' => 'دسترسی برای حذف دائمی فقط توسط مدیر سیستم امکان پذیر هست'
             ]);
         }
         $selectedFoldersId = (array)$request->input('folders', []);
@@ -362,16 +358,16 @@ class DashboardController extends Controller
         return redirect()->back();
     }
 
-  /**
-   * @throws ValidationException
-   */
+    /**
+     * @throws ValidationException
+     */
     public function trashAction(Request $request, DashboardUtilityService $utilityService): RedirectResponse
     {
         $request->validate([
-        'folders' => 'nullable|array',
-        'folders.*' => 'integer',
-        'files' => 'nullable|array',
-        'files.*' => 'integer',
+            'folders' => 'nullable|array',
+            'folders.*' => 'integer',
+            'files' => 'nullable|array',
+            'files.*' => 'integer',
         ]);
 
         $user = $request->user();
@@ -398,16 +394,16 @@ class DashboardController extends Controller
         return redirect()->back()->with(['message' => 'موارد انتخاب شده با موفقیت حذف شدند']);
     }
 
-  /**
-   * @throws ValidationException
-   */
+    /**
+     * @throws ValidationException
+     */
     public function trashRetrieve(Request $request, DashboardUtilityService $utilityService): RedirectResponse
     {
         $request->validate([
-        'folders' => 'nullable|array',
-        'folders.*' => 'integer',
-        'files' => 'nullable|array',
-        'files.*' => 'integer',
+            'folders' => 'nullable|array',
+            'folders.*' => 'integer',
+            'files' => 'nullable|array',
+            'files.*' => 'integer',
         ]);
 
         $user = $request->user();
@@ -434,16 +430,16 @@ class DashboardController extends Controller
         return redirect()->back()->with(['message' => 'موارد انتخاب شده با موفقیت بازگردانی شدند']);
     }
 
-  /**
-   * @throws ValidationException
-   */
+    /**
+     * @throws ValidationException
+     */
     public function archiveAction(Request $request, DashboardUtilityService $utilityService): RedirectResponse
     {
         $request->validate([
-        'folders' => 'nullable|array',
-        'folders.*' => 'integer',
-        'files' => 'nullable|array',
-        'files.*' => 'integer',
+            'folders' => 'nullable|array',
+            'folders.*' => 'integer',
+            'files' => 'nullable|array',
+            'files.*' => 'integer',
         ]);
 
         $user = $request->user();
@@ -470,16 +466,16 @@ class DashboardController extends Controller
         return redirect()->back()->with(['message' => 'موارد انتخاب شده با موفقیت آرشیو شدند']);
     }
 
-  /**
-   * @throws ValidationException
-   */
+    /**
+     * @throws ValidationException
+     */
     public function archiveRetrieve(Request $request, DashboardUtilityService $utilityService): RedirectResponse
     {
         $request->validate([
-        'folders' => 'nullable|array',
-        'folders.*' => 'integer',
-        'files' => 'nullable|array',
-        'files.*' => 'integer',
+            'folders' => 'nullable|array',
+            'folders.*' => 'integer',
+            'files' => 'nullable|array',
+            'files.*' => 'integer',
         ]);
 
         $user = $request->user();
@@ -506,18 +502,18 @@ class DashboardController extends Controller
         return redirect()->back()->with(['message' => 'موارد انتخاب شده با موفقیت بازگردانی شدند']);
     }
 
-  /**
-   * @throws ValidationException
-   * @throws BindingResolutionException
-   * @throws Throwable
-   */
+    /**
+     * @throws ValidationException
+     * @throws BindingResolutionException
+     * @throws Throwable
+     */
     public function createZip(Request $request, DashboardUtilityService $utilityService): RedirectResponse
     {
         $request->validate([
-        'folders' => 'nullable|array',
-        'folders.*' => 'integer',
-        'files' => 'nullable|array',
-        'files.*' => 'integer',
+            'folders' => 'nullable|array',
+            'folders.*' => 'integer',
+            'files' => 'nullable|array',
+            'files.*' => 'integer',
         ]);
 
         $user = $request->user();
@@ -537,74 +533,89 @@ class DashboardController extends Controller
         $zipFileName = pathinfo($zipPath, PATHINFO_BASENAME);
 
         $entityGroup = EntityGroup::createWithSlug([
-          'user_id' => $user->id,
-          'name' => $zipFileName,
-          'type' => 'zip',
-          'status' => EntityGroup::STATUS_ZIPPED,
-          'file_location' => $zipPath
+            'user_id' => $user->id,
+            'name' => $zipFileName,
+            'type' => 'zip',
+            'status' => EntityGroup::STATUS_ZIPPED,
+            'file_location' => $zipPath
         ]);
 
         $downloadUrl = strval(
-            route('web.user.dashboard.file.download.original-file', ['fileId' => $entityGroup->getEntityGroupId()])
+            route(
+                'web.user.dashboard.file.download.original-file',
+                ['fileId' => $entityGroup->getEntityGroupId()]
+            )
         );
         $zipFileInfo = [
-        'downloadUrl' => $downloadUrl,
-        'zipFileSize' => $entityGroup->getFileSizeHumanReadable(
-            intval(Storage::disk($entityGroup->type)->size($entityGroup->file_location))
-        ),
-        'zipFileName' => $zipFileName
+            'downloadUrl' => $downloadUrl,
+            'zipFileSize' => $entityGroup->getFileSizeHumanReadable(
+                intval(Storage::disk($entityGroup->type)->size($entityGroup->file_location))
+            ),
+            'zipFileName' => $zipFileName
         ];
         return redirect()->back()->with(['zipFileInfo' => json_encode($zipFileInfo)]);
     }
 
-    public function archiveList(Request $request): Response|ResponseFactory
+    public function archiveList(): Response|ResponseFactory
     {
-        $folders = Folder::query()->whereNotNull('archived_at')->get()->map(function (Folder $folder) {
-            return [
-            'id' => $folder->id,
-            'name' => $folder->name,
-            'slug' => $folder->getFolderId()
-            ];
-        });
+        $folders = Folder::query()
+            ->whereNotNull('archived_at')
+            ->get()
+            ->map(function (Folder $folder) {
+                return [
+                    'id' => $folder->id,
+                    'name' => $folder->name,
+                    'slug' => $folder->getFolderId()
+                ];
+            });
 
-        $files = EntityGroup::query()->whereNotNull('archived_at')->get()->map(function (EntityGroup $file) {
-            return [
-            'id' => $file->id,
-            'type' => $file->type,
-            'name' => $file->name,
-            'slug' => $file->getEntityGroupId()
-            ];
-        });
+        $files = EntityGroup::query()
+            ->whereNotNull('archived_at')
+            ->get()
+            ->map(function (EntityGroup $file) {
+                return [
+                    'id' => $file->id,
+                    'type' => $file->type,
+                    'name' => $file->name,
+                    'slug' => $file->getEntityGroupId()
+                ];
+            });
 
         return inertia('Dashboard/DocManagement/Archive', [
-        'folders' => $folders,
-        'files' => $files
+            'folders' => $folders,
+            'files' => $files
         ]);
     }
 
-    public function trashList(Request $request): Response|ResponseFactory
+    public function trashList(): Response|ResponseFactory
     {
-        $folders = Folder::query()->whereNotNull('deleted_at')->get()->map(function (Folder $folder) {
-            return [
-            'id' => $folder->id,
-            'name' => $folder->name,
-            'slug' => $folder->getFolderId()
-            ];
-        });
+        $folders = Folder::query()
+            ->whereNotNull('deleted_at')
+            ->get()
+            ->map(function (Folder $folder) {
+                return [
+                    'id' => $folder->id,
+                    'name' => $folder->name,
+                    'slug' => $folder->getFolderId()
+                ];
+            });
 
-        $files = EntityGroup::query()->whereNotNull('deleted_at')->get()->map(function (EntityGroup $file) {
-            return [
-            'id' => $file->id,
-            'type' => $file->type,
-            'name' => $file->name,
-            'slug' => $file->getEntityGroupId()
-            ];
-        });
+        $files = EntityGroup::query()
+            ->whereNotNull('deleted_at')
+            ->get()
+            ->map(function (EntityGroup $file) {
+                return [
+                    'id' => $file->id,
+                    'type' => $file->type,
+                    'name' => $file->name,
+                    'slug' => $file->getEntityGroupId()
+                ];
+            });
 
         return inertia('Dashboard/DocManagement/Archive', [
-        'folders' => $folders,
-        'files' => $files,
-        'status' => 'trash'
+            'folders' => $folders,
+            'files' => $files,
+            'status' => 'trash'
         ]);
     }
 }
