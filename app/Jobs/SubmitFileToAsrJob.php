@@ -124,7 +124,9 @@ class SubmitFileToAsrJob implements ShouldQueue
                             'activity_id' => $entityGroup->id,
                             'activity_type' => EntityGroup::class,
                         ]);
-                    }, 3);
+                    },
+                    3
+                );
 
             // Cleanup storage
             $splitLocation = dirname($this->entityGroup->file_location) . '/' . $this->entityGroup->id;
@@ -135,7 +137,7 @@ class SubmitFileToAsrJob implements ShouldQueue
             }
 
             Log::info("Deleted storage files for entityGroup #{$this->entityGroup->id}");
-        } catch (Exception|GuzzleException $e) {
+        } catch (Exception | GuzzleException $e) {
             $this->fail();
             throw $e; // Preserve stack trace
         }
