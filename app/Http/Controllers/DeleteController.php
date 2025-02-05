@@ -21,34 +21,43 @@ class DeleteController extends Controller
         $this->middleware('convert.obfuscatedId-folder')->only(['retrievalFolder']);
         $this->middleware('convert.obfuscatedId-entityGroup')->only(['retrievalFile']);
     }
-    public function index(Request $request): Response|ResponseFactory
-    {
-        $folders = Folder::query()->whereNotNull('deleted_at')->get()->map(function (Folder $folder) {
-            return [
-            'id' => $folder->id,
-            'name' => $folder->name,
-            'slug' => $folder->getFolderId()
-            ];
-        });
 
-        $files = EntityGroup::query()->whereNotNull('deleted_at')->get()->map(function (EntityGroup $file) {
-            return [
-            'id' => $file->id,
-            'type' => $file->type,
-            'name' => $file->name,
-            'slug' => $file->getEntityGroupId()
-            ];
-        });
+    public function index(): Response|ResponseFactory
+    {
+        $folders = Folder::query()
+            ->select(['id', 'name', 'deleted_at'])
+            ->whereNotNull('deleted_at')
+            ->get()
+            ->map(function (Folder $folder) {
+                return [
+                    'id' => $folder->id,
+                    'name' => $folder->name,
+                    'slug' => $folder->getFolderId()
+                ];
+            });
+
+        $files = EntityGroup::query()
+            ->select(['id', 'type', 'name', 'deleted_at'])
+            ->whereNotNull('deleted_at')
+            ->get()
+            ->map(function (EntityGroup $file) {
+                return [
+                    'id' => $file->id,
+                    'type' => $file->type,
+                    'name' => $file->name,
+                    'slug' => $file->getEntityGroupId()
+                ];
+            });
 
         return inertia('Dashboard/Archive', [
-        'folders' => $folders,
-        'files' => $files
+            'folders' => $folders,
+            'files' => $files
         ]);
     }
 
-  /**
-   * @throws ValidationException
-   */
+    /**
+     * @throws ValidationException
+     */
     public function retrievalFolder(Request $request): RedirectResponse
     {
         /** @var User|null $user */
@@ -65,20 +74,26 @@ class DeleteController extends Controller
         }
 
         $folder = DB::transaction(function () use ($user, $folder) {
-            $folder = Folder::query()->where('id', $folder->id)->lockForUpdate()->firstOrFail();
+            $folder = Folder::query()
+                ->where('id', $folder->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-            $folder->deleted_at = null;
-            $folder->deleted_by = null;
-            $folder->save();
-            $description = "پوشه $folder->name توسط کاربر  {$user->name} با کد پرسنلی
-             {$user->personal_id} بازگردانی شد .";
+            $folder->update([
+                'deleted_at' => null,
+                'deleted_by' => null
+            ]);
 
-            $activity = new Activity();
-            $activity->user_id = $user->id;
-            $activity->status = Activity::TYPE_RETRIEVAL;
-            $activity->description = $description;
-            $activity->activity()->associate($folder);
-            $activity->save();
+            $description = "پوشه $folder->name توسط کاربر  $user->name با کد پرسنلی
+             $user->personal_id بازگردانی شد .";
+
+            Activity::query()->create([
+                'user_id' => $user->id,
+                'status' => Activity::TYPE_RETRIEVAL,
+                'description' => $description,
+                'activity_id' => $folder->id,
+                'activity_type' => Folder::class
+            ]);
 
             return $folder;
         }, 3);
@@ -91,30 +106,35 @@ class DeleteController extends Controller
 
     public function retrievalFile(Request $request): RedirectResponse
     {
-      /** @var User|null $user */
+        /** @var User|null $user */
         $user = $request->user();
 
         if ($user === null) {
             abort(403, 'دسترسی لازم را ندارید.');
         }
 
-      /** @var EntityGroup $entityGroup */
+        /** @var EntityGroup $entityGroup */
         $entityGroup = $request->attributes->get('entityGroup');
 
         $entityGroup = DB::transaction(function () use ($user, $entityGroup) {
-            $entityGroup = EntityGroup::query()->where('id', $entityGroup->id)->lockForUpdate()->firstOrFail();
-            $entityGroup->deleted_at = null;
-            $entityGroup->deleted_by = null;
-            $entityGroup->save();
-            $description = "فایل $entityGroup->name توسط کاربر  {$user->name} با کد پرسنلی
-             {$user->personal_id} بازگردانی شد .";
+            $entityGroup = EntityGroup::query()
+                ->where('id', $entityGroup->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+            $entityGroup->update([
+                'deleted_at' => null,
+                'deleted_by' => null
+            ]);
+            $description = "فایل $entityGroup->name توسط کاربر  $user->name با کد پرسنلی
+             $user->personal_id بازگردانی شد .";
 
-            $activity = new Activity();
-            $activity->user_id = $user->id;
-            $activity->status = Activity::TYPE_RETRIEVAL;
-            $activity->description = $description;
-            $activity->activity()->associate($entityGroup);
-            $activity->save();
+            Activity::query()->create([
+                'user_id' => $user->id,
+                'status' => Activity::TYPE_RETRIEVAL,
+                'description' => $description,
+                'activity_id' => $entityGroup->id,
+                'activity_type' => EntityGroup::class
+            ]);
 
             return $entityGroup;
         }, 3);

@@ -37,7 +37,7 @@ class DashboardController extends Controller
         }
 
         $rootFolders = Folder::query()
-            ->select(['id', 'name'])
+            ->select(['id', 'name', 'parent_folder_id', 'deleted_at', 'archived_at'])
             ->whereNull(['parent_folder_id', 'deleted_at', 'archived_at'])
             ->get()
             ->map(function (Folder $folder) {
@@ -59,6 +59,9 @@ class DashboardController extends Controller
                 'entity_groups.type',
                 'entity_groups.status',
                 'entity_groups.description',
+                'entity_groups.archived_at',
+                'entity_groups.deleted_at',
+                'entity_groups.parent_folder_id',
             ])
             ->distinct()
             ->get();
@@ -559,6 +562,7 @@ class DashboardController extends Controller
     public function archiveList(): Response|ResponseFactory
     {
         $folders = Folder::query()
+            ->select(['id', 'name', 'archived_at'])
             ->whereNotNull('archived_at')
             ->get()
             ->map(function (Folder $folder) {
@@ -570,6 +574,7 @@ class DashboardController extends Controller
             });
 
         $files = EntityGroup::query()
+            ->select(['id', 'type', 'name', 'archived_at'])
             ->whereNotNull('archived_at')
             ->get()
             ->map(function (EntityGroup $file) {
@@ -590,6 +595,7 @@ class DashboardController extends Controller
     public function trashList(): Response|ResponseFactory
     {
         $folders = Folder::query()
+            ->select(['id', 'name', 'deleted_at'])
             ->whereNotNull('deleted_at')
             ->get()
             ->map(function (Folder $folder) {
@@ -601,6 +607,7 @@ class DashboardController extends Controller
             });
 
         $files = EntityGroup::query()
+            ->select(['id', 'type', 'name', 'deleted_at'])
             ->whereNotNull('deleted_at')
             ->get()
             ->map(function (EntityGroup $file) {

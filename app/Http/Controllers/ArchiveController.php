@@ -25,7 +25,7 @@ class ArchiveController extends Controller
     public function index(): Response|ResponseFactory
     {
         $folders = Folder::query()
-            ->select(['id', 'name'])
+            ->select(['id', 'name', 'archived_at'])
             ->whereNotNull('archived_at')
             ->get()
             ->map(function (Folder $folder) {
@@ -37,7 +37,7 @@ class ArchiveController extends Controller
             });
 
         $files = EntityGroup::query()
-            ->select(['id', 'type', 'name'])
+            ->select(['id', 'type', 'name', 'archived_at'])
             ->whereNotNull('archived_at')
             ->get()
             ->map(function (EntityGroup $file) {
