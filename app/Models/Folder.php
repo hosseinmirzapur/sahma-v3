@@ -32,9 +32,12 @@ use Throwable;
  * @property string|null $slug
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
+ * @property int|string|null $deleted_by
  * @property-read Collection<int, Activity> $activity
  * @property-read int|null $activity_count
  * @property-read Collection<int, EntityGroup> $entityGroups
+ * @property-read Collection<int, Folder> $subFolders
+ * @property-read int|null $sub_folders_count
  * @property-read int|null $entity_groups_count
  * @property-read User|null $user
  * @method static FolderFactory factory($count = null, $state = [])

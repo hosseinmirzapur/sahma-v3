@@ -9,45 +9,48 @@ use Illuminate\Support\Facades\Log;
 
 class FolderService
 {
+    /**
+     * @param Folder $folder
+     * @return void
+     */
     public function deleteFolderRecursive(Folder $folder): void
     {
-        Log::info("Folder:#$folder->id-$folder->name START to delete it's subFolders and files.");
-      // Get all subFolders of the current folder
-        $subFolders = Folder::query()->where('parent_folder_id', $folder->id)->get();
-        $subFiles = EntityGroup::query()->where('parent_folder_id', $folder->id)->get();
+        Log::info("Starting deletion of Folder:#$folder->id-$folder->name and its contents.");
 
-        foreach ($subFiles as $file) {
-            $file->deleted_at = now();
-            $file->deleted_by = $folder->deleted_by;
-            $file->save();
-            Log::info("File:#$file->id-$file->name has been temporary deleted by User::#$folder->deleted_by");
-        }
+        // Load all related subFolders and files in a single query
+        $folder->load(['subFolders', 'files']);
 
-      // If the current folder has subFolders, recursively delete them
-      /* @var Folder $subFolder */
-        foreach ($subFolders as $subFolder) {
-            $subFolder->deleted_at = now();
-            $subFolder->deleted_by = $folder->deleted_by;
-            $subFolder->save();
-            Log::info(
-                "SubFolder:#$subFolder->id-$subFolder->name has been temporary deleted
-                 by User::#$folder->deleted_by"
-            );
-            Log::info(
-                "Folder:#$subFolder->id-$subFolder->name IS_GOING_TO delete it's subFolders and files."
-            );
-            dispatch(
-          /**
-           * @throws BindingResolutionException
-           */
-                function () use ($folder) {
-                    /**
-                    * @var FolderService $folderService
-                    */
+        // Soft-delete all files in the folder in bulk
+        EntityGroup::query()->where('parent_folder_id', $folder->id)
+            ->update([
+                'deleted_at' => now(),
+                'deleted_by' => $folder->deleted_by
+            ]);
+
+        Log::info("Soft-deleted all files in Folder:#$folder->id.");
+
+        // Soft-delete all subFolders in bulk
+        Folder::query()->where('parent_folder_id', $folder->id)
+            ->update([
+                'deleted_at' => now(),
+                'deleted_by' => $folder->deleted_by
+            ]);
+
+        Log::info("Soft-deleted all subfolders in Folder:#$folder->id.");
+
+        // Dispatch jobs for each subfolder to delete their contents recursively
+        foreach ($folder->subFolders as $subFolder) {
+            Log::info("Dispatching recursive deletion for SubFolder:#$subFolder->id-$subFolder->name.");
+
+            dispatch(function () use ($subFolder) {
+                try {
+                    /** @var FolderService $folderService */
                     $folderService = app()->make(FolderService::class);
-                    $folderService->deleteFolderRecursive($folder);
+                    $folderService->deleteFolderRecursive($subFolder);
+                } catch (BindingResolutionException $e) {
+                    Log::error("Error resolving FolderService: " . $e->getMessage());
                 }
-            )->onQueue('folder::delete-sub-folders-and-files');
+            })->onQueue('folder::delete-sub-folders-and-files');
         }
     }
 }
