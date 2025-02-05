@@ -16,7 +16,10 @@ use Illuminate\Support\Facades\Storage;
 
 class ConvertVoiceToWaveJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable;
+    use InteractsWithQueue;
+    use Queueable;
+    use SerializesModels;
 
     public int $tries = 3; // Allow 3 retries instead of failing immediately
     public int $timeout = 7200;
@@ -53,7 +56,9 @@ class ConvertVoiceToWaveJob implements ShouldQueue
 
             // Update database record
             $this->entityGroup->update([
-                'result_location' => array_merge($this->entityGroup->result_location ?? [], ['wav_location' => $convertedPath])
+                'result_location' => array_merge(
+                    $this->entityGroup->result_location ?? [], ['wav_location' => $convertedPath]
+                )
             ]);
 
             SubmitVoiceToSplitterJob::dispatch($this->entityGroup);
@@ -73,7 +78,9 @@ class ConvertVoiceToWaveJob implements ShouldQueue
     {
         $outputPath = "/tmp/" . Carbon::now()->timestamp . '-' . uniqid('converted-voice') . '.wav';
 
-        $command = escapeshellcmd("ffmpeg -y -i '$filePath' -ac 1 -ar 16000 -acodec pcm_s16le -loglevel error '$outputPath' 2>&1");
+        $command = escapeshellcmd(
+            "ffmpeg -y -i '$filePath' -ac 1 -ar 16000 -acodec pcm_s16le -loglevel error '$outputPath' 2>&1"
+        );
         $output = shell_exec($command);
 
         if (!file_exists($outputPath) || filesize($outputPath) === 0) {
