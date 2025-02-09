@@ -37,8 +37,8 @@ class DashboardController extends Controller
         }
 
         $rootFolders = Folder::query()
-            ->select(['id', 'name', 'parent_folder_id', 'deleted_at', 'archived_at'])
             ->whereNull(['parent_folder_id', 'deleted_at', 'archived_at'])
+            ->select(['id', 'name'])
             ->get()
             ->map(function (Folder $folder) {
                 return [
@@ -59,9 +59,6 @@ class DashboardController extends Controller
                 'entity_groups.type',
                 'entity_groups.status',
                 'entity_groups.description',
-                'entity_groups.archived_at',
-                'entity_groups.deleted_at',
-                'entity_groups.parent_folder_id',
             ])
             ->distinct()
             ->get();

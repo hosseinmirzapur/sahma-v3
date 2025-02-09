@@ -3,15 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Activity;
-use App\Models\Department;
-use App\Models\DepartmentFile;
 use App\Models\DepartmentUser;
-use App\Models\Entity;
-use App\Models\EntityGroup;
 use App\Models\Folder;
 use App\Models\User;
 use App\Services\ActivityService;
-use App\Services\FileService;
 use Exception;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,7 +15,6 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Inertia\Response;
 use Inertia\ResponseFactory;
-use Throwable;
 
 class FolderController extends Controller
 {
@@ -32,20 +26,20 @@ class FolderController extends Controller
         $this->middleware('check.permission.folder-and-file-management')
             ->only(['create', 'createRoot', 'move', 'moveRoot', 'temporaryDelete']);
         $this->middleware('convert.obfuscatedId-folder')
-        ->only(['show']);
+            ->only(['show']);
     }
 
-  /**
-   * @throws Exception
-   */
+    /**
+     * @throws Exception
+     */
     public function create(Request $request): RedirectResponse
     {
         $request->validate([
-        'folderName' => 'required|string'
+            'folderName' => 'required|string'
         ]);
         /** @var User $user */
         $user = $request->user();
-      /** @var Folder|null $parentFolder */
+        /** @var Folder|null $parentFolder */
         $parentFolder = $request->attributes->get('folder');
 
         if ($parentFolder === null) {
@@ -60,11 +54,13 @@ class FolderController extends Controller
                 'user_id' => $user->id,
                 'parent_folder_id' => $parentFolder->id
             ]);
-            $description = 'کاربر '  . $user->name . ' ';
-            $description .= 'با کد پرسنلی '  . $user->personal_id . ' ';
-            $description .= 'پوشه '  . $folder->name . ' ';
-            $description .= 'را درون پوشه '  . $parentFolder->name . ' ';
-            $description .= 'ایجاد کرد.';
+            $description = sprintf(
+                "کاربر %s با کد پرسنلی %s پوشه %s را درون پوشه %s ایجاد کرد",
+                $user->name,
+                $user->personal_id,
+                $folder->name,
+                $parentFolder->name
+            );
 
             $this->activityService->logUserAction($user, Activity::TYPE_CREATE, $folder, $description);
 
@@ -92,10 +88,12 @@ class FolderController extends Controller
                 'user_id' => $user->id,
                 'parent_folder_id' => null
             ]);
-            $description = 'کاربر '  . $user->name . ' ';
-            $description .= 'با کد پرسنلی '  . $user->personal_id . ' ';
-            $description .= 'پوشه '  . $folder->name . ' ';
-            $description .= 'را در صفحه اول داشبورد ایجاد کرد.';
+            $description = sprintf(
+                "کاربر %s با کد پرسنلی %s پوشه %s را در صفحه اول داشبورد ایجاد کرد.",
+                $user->name,
+                $user->personal_id,
+                $folder->name
+            );
 
             $this->activityService->logUserAction($user, Activity::TYPE_CREATE, $folder, $description);
 
@@ -108,14 +106,14 @@ class FolderController extends Controller
     }
 
 
-  /**
-   * @throws Exception
-   */
+    /**
+     * @throws Exception
+     */
     public function show(Request $request): Response|ResponseFactory
     {
-      /** @var User $user */
+        /** @var User $user */
         $user = $request->user();
-      /** @var Folder|null $folder */
+        /** @var Folder|null $folder */
         $folder = $request->attributes->get('folder');
 
         if ($folder === null) {
@@ -123,16 +121,18 @@ class FolderController extends Controller
         }
 
         $folders = Folder::query()
-        ->where('parent_folder_id', $folder->id)
-        ->whereNull('deleted_at')
-        ->whereNull('archived_at')
-        ->get()->map(function (Folder $subFolder) {
-            return [
-            'id' => $subFolder->id,
-            'name' => $subFolder->name,
-            'slug' => $subFolder->getFolderId()
-            ];
-        });
+            ->where('parent_folder_id', $folder->id)
+            ->whereNull('deleted_at')
+            ->whereNull('archived_at')
+            ->select(['id', 'name'])
+            ->get()
+            ->map(function (Folder $subFolder) {
+                return [
+                    'id' => $subFolder->id,
+                    'name' => $subFolder->name,
+                    'slug' => $subFolder->getFolderId()
+                ];
+            });
         $files = $user->getAllAvailableFilesAsArray($folder);
         $zipFileInfo = strval(session('zipFileInfo', null));
         session()->forget('zipFileInfo');
@@ -146,74 +146,78 @@ class FolderController extends Controller
             ];
         });
         return inertia('Dashboard/DocManagement/index', [
-          'folders' => $folders,
-          'files' => $files,
-          'breadcrumbs' => $breadcrumbs,
-          'zipFileInfo' => json_decode($zipFileInfo, true),
-          'departments' => $departments
+            'folders' => $folders,
+            'files' => $files,
+            'breadcrumbs' => $breadcrumbs,
+            'zipFileInfo' => json_decode($zipFileInfo, true),
+            'departments' => $departments
         ]);
     }
 
-  /**
-   * @throws Exception
-   */
+    /**
+     * @throws Exception
+     */
     public function move(Request $request): RedirectResponse
     {
-      /** @var User|null $user */
+        /** @var User|null $user */
         $user = $request->user();
 
         if ($user === null) {
             abort(403, 'دسترسی لازم را ندارید.');
         }
-      /** @var Folder|null $folder */
+        /** @var Folder|null $folder */
         $folder = $request->attributes->get('folder');
 
         if ($folder === null) {
             throw ValidationException::withMessages(['message' => 'پوشه مورد نظر یافت نشد.']);
         }
 
+        /** @var Folder|null $destinationFolder */
         $destinationFolder = $request->input('destinationFolder') ?? null;
         $destinationFolder = Folder::query()->find($destinationFolder);
         $folder = DB::transaction(function () use ($user, $destinationFolder, $folder) {
-            $folder->parent_folder_id = $destinationFolder?->id;
-            $folder->save();
+            $folder->update([
+                'parent_folder_id' => $destinationFolder?->id
+            ]);
 
-            $description = "پوشه {$folder->name} توسط کاربر  {$user->name}";
-            $description .= 'با کد پرسنلی '  . $user->personal_id . ' ';
-            $description .= " با کد پرسنلی $user->personal_id به پوشه";
-            $description .= " $destinationFolder?->name انتقال یافت. ";
+            $description = sprintf(
+                "پوشه %s توسط کاربر %s با کد پرسنلی %s به پوشه %s انتقال یافت",
+                $folder->name,
+                $user->name,
+                $user->personal_id,
+                $destinationFolder->name ?? 'NULL'
+            );
 
             $this->activityService->logUserAction($user, Activity::TYPE_MOVE, $folder, $description);
             return $folder;
         }, 3);
 
-        if ($destinationFolder) {
-            Log::info(
-                "Folder:#$folder->id-$folder->name has been moved
-               to Folder:#$destinationFolder->id-$destinationFolder->name
-               "
-            );
-            return redirect()
-              /** @phpstan-ignore-next-line  */
-              ->route('web.user.dashboard.folder.show', ['folderId' => $destinationFolder->getFolderId()]);
-        } else {
-            Log::info("Folder:#$folder->id-$folder->name has been moved to dashboard.");
-            return redirect()->route('web.user.dashboard.index');
-        }
+        Log::info(
+            sprintf(
+                "Folder: #%d-%s has been moved to %s",
+                $folder->id,
+                $folder->name,
+                $destinationFolder ? "Folder: #$destinationFolder->id-$destinationFolder->name" : "Dashboard"
+            )
+        );
+        return redirect()->route(
+            $destinationFolder ? "web.user.dashboard.folder.show" : "web.user.dashboard.index",
+            $destinationFolder ? ['folderId' => $destinationFolder->getFolderId()] : []
+        );
     }
 
-  /**
-   * @throws ValidationException
-   */
+    /**
+     * @throws ValidationException
+     */
     public function moveRoot(Request $request): RedirectResponse
     {
-      /** @var User|null $user */
+        /** @var User|null $user */
         $user = $request->user();
 
         if ($user === null) {
             abort(403, 'دسترسی لازم را ندارید.');
         }
-      /** @var Folder|null $folder */
+        /** @var Folder|null $folder */
         $folder = $request->attributes->get('folder');
 
         if ($folder === null) {
@@ -221,13 +225,16 @@ class FolderController extends Controller
         }
         $folder = DB::transaction(function () use ($user, $folder) {
             $folder = Folder::query()->where('id', $folder->id)->lockForUpdate()->firstOrFail();
-            $folder->parent_folder_id = null;
-            $folder->save();
+            $folder->update([
+                'parent_folder_id' => null
+            ]);
 
-            $description = "پوشه {$folder->name} توسط کاربر  {$user->name}";
-            $description .= 'با کد پرسنلی '  . $user->personal_id . ' ';
-            $description .= " با کد پرسنلی $user->personal_id ";
-            $description .= "به داشبورد انتقال داد.";
+            $description = sprintf(
+                "پوشه %s توسط کاربر %s با کد پرسنلی %s به داشبورد انتقال داد.",
+                $folder->name,
+                $user->name,
+                $user->personal_id
+            );
 
             $this->activityService->logUserAction($user, Activity::TYPE_MOVE, $folder, $description);
 
@@ -239,9 +246,9 @@ class FolderController extends Controller
         return redirect()->route('web.user.dashboard.index');
     }
 
-  /**
-   * @throws ValidationException
-   */
+    /**
+     * @throws ValidationException
+     */
     public function rename(Request $request, ActivityService $activityService): RedirectResponse
     {
         $request->validate(['folderName' => 'required|string']);
@@ -260,14 +267,17 @@ class FolderController extends Controller
 
         DB::transaction(function () use ($user, $request, $folder, $activityService) {
             $newName = strval($request->input('folderName'));
-            $folder->name = $newName;
-            $folder->save();
+            $folder->update([
+                'name' => $newName
+            ]);
 
-            $description = 'کاربر '  . $user->name . ' ';
-            $description .= 'با کد پرسنلی '  . $user->personal_id . ' ';
-            $description .= 'نام پوشه '  . $folder->name . ' ';
-            $description .= 'را به  '  . $newName . ' ';
-            $description .= 'تغییر داد.';
+            $description = sprintf(
+                "کاربر %s با کد پرسنلی %s نام پوشه %s را به %s تغییر داد",
+                $user->name,
+                $user->personal_id,
+                $folder->name,
+                $newName
+            );
 
             $activityService->logUserAction($user, Activity::TYPE_RENAME, $folder, $description);
         }, 3);

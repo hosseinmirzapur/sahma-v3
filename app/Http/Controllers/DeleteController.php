@@ -25,8 +25,8 @@ class DeleteController extends Controller
     public function index(): Response|ResponseFactory
     {
         $folders = Folder::query()
-            ->select(['id', 'name', 'deleted_at'])
             ->whereNotNull('deleted_at')
+            ->select(['id', 'name'])
             ->get()
             ->map(function (Folder $folder) {
                 return [
@@ -37,8 +37,8 @@ class DeleteController extends Controller
             });
 
         $files = EntityGroup::query()
-            ->select(['id', 'type', 'name', 'deleted_at'])
             ->whereNotNull('deleted_at')
+            ->select(['id', 'type', 'name'])
             ->get()
             ->map(function (EntityGroup $file) {
                 return [
