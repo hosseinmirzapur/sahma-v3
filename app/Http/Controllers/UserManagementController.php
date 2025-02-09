@@ -22,19 +22,24 @@ class UserManagementController extends Controller
     public function __construct()
     {
         $this->middleware('check.permission.user-management')
-        ->only(['index', 'create', 'block', 'delete', 'edit', 'search']);
+            ->except(['userInfo']);
     }
 
+    /**
+     * @param Request $request
+     * @param UserService $userService
+     * @return Response|ResponseFactory
+     */
     public function index(Request $request, UserService $userService): Response|ResponseFactory
     {
-      /** @var User|null $user */
+        /** @var User|null $user */
         $user = $request->user();
 
         if ($user === null) {
             abort(403, 'دسترسی لازم را ندارید.');
         }
 
-        $searchedUser = session('searchedUser', null);
+        $searchedUser = session('searchedUser');
 
         if ($searchedUser) {
             $users = json_decode(strval($searchedUser), true);
@@ -46,15 +51,19 @@ class UserManagementController extends Controller
         return inertia('Dashboard/UserManagement/UserManagement', ['users' => $users]);
     }
 
-    public function userInfo(Request $request, User $user): Response|ResponseFactory
+    public function userInfo(User $user): Response|ResponseFactory
     {
-        $departments = Department::query()->select('departments.id', 'departments.name')
-        ->join(
-            'department_users',
-            'department_users.department_id',
-            '=',
-            'departments.id'
-        )->where('department_users.user_id', $user->id)->get()->toArray();
+        $departments = Department::query()
+            ->select('departments.id', 'departments.name')
+            ->join(
+                'department_users',
+                'department_users.department_id',
+                '=',
+                'departments.id'
+            )
+            ->where('department_users.user_id', $user->id)
+            ->get()
+            ->toArray();
         if ($user->is_super_admin) {
             $permission = 'super_admin';
         } elseif ($user->role->permission->full) {
@@ -65,47 +74,48 @@ class UserManagementController extends Controller
             $permission = 'read_only';
         }
         $userInfo =
-        [
-        'id' => $user->id,
-        'name' => $user->name,
-        'personalId' => $user->personal_id,
-        'password' => $user->password,
-        'roleTitle' => $user->role->title,
-        'departments' => $departments,
-        'permission' => $permission
-        ];
+            [
+                'id' => $user->id,
+                'name' => $user->name,
+                'personalId' => $user->personal_id,
+                'password' => $user->password,
+                'roleTitle' => $user->role->title,
+                'departments' => $departments,
+                'permission' => $permission
+            ];
 
         $activities = Activity::query()
-        ->select(['description', 'created_at'])
-        ->where('user_id', $user->id)
-        ->orderBy('id', 'desc')
-        ->get()->map(function (Activity $activity) {
-            return [
-            'created_at' => timestamp_to_persian_datetime($activity->created_at),
-            'description' => $activity->description
-            ];
-        })
-        ->toArray();
+            ->select(['description', 'created_at'])
+            ->where('user_id', $user->id)
+            ->orderBy('id', 'desc')
+            ->get()
+            ->map(function (Activity $activity) {
+                return [
+                    'created_at' => timestamp_to_persian_datetime($activity->created_at),
+                    'description' => $activity->description
+                ];
+            })
+            ->toArray();
 
         return inertia('Components/UserInfo', [
-        'userInfo' => $userInfo,
-        'activities' => $activities
+            'userInfo' => $userInfo,
+            'activities' => $activities
         ]);
     }
 
     public function create(Request $request): RedirectResponse
     {
         $request->validate([
-        'name' => 'required|string',
-        'personalId' => 'required|string',
-        'roleTitle' => 'required|string',
-        'departments' => 'required|array|min:1',
-        'departments.*' => 'integer|exists:departments,id',
-        'password' => 'required|string|min:6|confirmed',
-        'permission' => 'required|in:full,modify,read_only'
+            'name' => 'required|string',
+            'personalId' => 'required|string',
+            'roleTitle' => 'required|string',
+            'departments' => 'required|array|min:1',
+            'departments.*' => 'integer|exists:departments,id',
+            'password' => 'required|string|min:6|confirmed',
+            'permission' => 'required|in:full,modify,read_only'
         ]);
         DB::transaction(function () use ($request) {
-          /* @var User $adminUser */
+            /* @var User $adminUser */
             $adminUser = $request->user();
 
             $name = strval($request->input('name'));
@@ -123,29 +133,34 @@ class UserManagementController extends Controller
             $role = Role::query()->create(['title' => $roleTitle, 'slug' => $roleTitle]);
 
             Permission::query()->create([
-            'full' => $permission === 'full',
-            'modify' => $permission === 'modify',
-            'read_only' => $permission === 'read_only',
-            'role_id' => $role->id
+                'full' => $permission === 'full',
+                'modify' => $permission === 'modify',
+                'read_only' => $permission === 'read_only',
+                'role_id' => $role->id
             ]);
 
             $user = User::query()->create([
-            'name' => $name,
-            'personal_id' => $personalId,
-            'password' => Hash::make($password),
-            'created_by' => $adminUser->id,
-            'role_id' => $role->id,
-            'is_super_admin' => false
+                'name' => $name,
+                'personal_id' => $personalId,
+                'password' => Hash::make($password),
+                'created_by' => $adminUser->id,
+                'role_id' => $role->id,
+                'is_super_admin' => false
             ]);
 
             foreach ($departments as $departmentId) {
-                $department = Department::query()->findOrFail($departmentId);
                 DepartmentUser::query()->create([
-                'user_id' => $user->id,
-                'department_id' => $department->id
+                    'user_id' => $user->id,
+                    'department_id' => $departmentId
                 ]);
             }
-            $description = "کاربر $user->name توسط کاربر {$adminUser->name} با کد پرسنلی  {$user->personal_id}ایجاد شد.";
+            $description = sprintf(
+                "کاربر %s توسط کاربر %s با کد پرسنلی %s ایجاد شد.",
+                $user->name,
+                $adminUser->name,
+                $user->personal_id
+            );
+
             $activity = new Activity();
             $activity->user_id = $adminUser->id;
             $activity->status = Activity::TYPE_CREATE;
@@ -156,23 +171,24 @@ class UserManagementController extends Controller
         return redirect()->back()->with(['message' => 'کاربر با موفقیت اضافه شد.']);
     }
 
-  /**
-   * @throws ValidationException
-   */
+    /**
+     * @throws ValidationException
+     */
     public function block(Request $request, User $user): RedirectResponse
     {
-      /* @var User $adminUser */
+        /* @var User $adminUser */
         $adminUser = $request->user();
         if ($user->is_super_admin) {
             throw ValidationException::withMessages(['message' => 'مدیر سیستم قابلیت حذف ندارد.']);
         }
 
         DB::transaction(function () use ($user, $adminUser) {
-            $user->deleted_at = now();
-            $user->password = 'DELETED_' . $user->password;
-            $user->save();
+            $user->update([
+                'deleted_at' => now(),
+                'password' => "DELETED_$user->password"
+            ]);
 
-            $description = "کاربر $user->name توسط کاربر {$adminUser->name} با کد پرسنلی {$user->personal_id}حذف شد. ";
+            $description = "کاربر $user->name توسط کاربر $adminUser->name با کد پرسنلی {$user->personal_id}حذف شد. ";
             $activity = new Activity();
             $activity->user_id = $adminUser->id;
             $activity->status = Activity::TYPE_DELETE;
@@ -186,13 +202,13 @@ class UserManagementController extends Controller
 
     public function delete(Request $request, User $user): RedirectResponse
     {
-      /* @var User $adminUser */
+        /* @var User $adminUser */
         $adminUser = $request->user();
 
         DB::transaction(function () use ($user, $adminUser) {
             $user->delete();
 
-            $description = "کاربر $user->name توسط کاربر  {$adminUser->name} با کد پرسنلی
+            $description = "کاربر $user->name توسط کاربر  $adminUser->name با کد پرسنلی
             {$user->personal_id}حذف شد. ";
 
             $activity = new Activity();
@@ -206,19 +222,19 @@ class UserManagementController extends Controller
         return redirect()->back()->with(['message' => 'کاربر با موفقیت مسدود شد.']);
     }
 
-  /**
-   * @throws ValidationException
-   */
+    /**
+     * @throws ValidationException
+     */
     public function edit(Request $request, User $user): RedirectResponse
     {
         $request->validate([
-        'name' => 'required|string',
-        'personalId' => 'required|integer',
-        'roleTitle' => 'required|string',
-        'departments' => 'required|array|min:1',
-        'departments.*' => 'integer|exists:departments,id',
-        'password' => 'nullable|string|min:6|confirmed',
-        'permission' => 'required|in:full,modify,read_only'
+            'name' => 'required|string',
+            'personalId' => 'required|integer',
+            'roleTitle' => 'required|string',
+            'departments' => 'required|array|min:1',
+            'departments.*' => 'integer|exists:departments,id',
+            'password' => 'nullable|string|min:6|confirmed',
+            'permission' => 'required|in:full,modify,read_only'
         ]);
 
         if ($user->is_super_admin) {
@@ -226,16 +242,16 @@ class UserManagementController extends Controller
         }
 
         DB::transaction(function () use ($request, $user) {
-          /* @var User $adminUser */
+            /* @var User $adminUser */
             $adminUser = $request->user();
 
             $name = strval($request->input('name')) !== $user->name ?
-            strval($request->input('name')) :
-            $user->name;
+                strval($request->input('name')) :
+                $user->name;
 
             $personalId = intval($request->input('personalId')) !== $user->personal_id ?
-            intval($request->input('personalId')) :
-            $user->personal_id;
+                intval($request->input('personalId')) :
+                $user->personal_id;
 
             $roleTitle = strval($request->input('roleTitle'));
             $permissionInput = strval($request->input('permission'));
@@ -246,20 +262,20 @@ class UserManagementController extends Controller
             if ($oldRole->title !== $roleTitle) {
                 $newRole = Role::query()->create(['title' => $roleTitle, 'slug' => $roleTitle]);
                 Permission::query()->create([
-                'full' => $permissionInput === 'full',
-                'modify' => $permissionInput === 'modify',
-                'read_only' => $permissionInput === 'read_only',
-                'role_id' => $newRole->id
+                    'full' => $permissionInput === 'full',
+                    'modify' => $permissionInput === 'modify',
+                    'read_only' => $permissionInput === 'read_only',
+                    'role_id' => $newRole->id
                 ]);
             }
             if ($newRole == null) {
                 $permission = $oldRole->permission;
                 $permission->full = $permissionInput == 'full';
-              /** @phpstan-ignore-line */
+                /** @phpstan-ignore-line */
                 $permission->modify = $permissionInput == 'modify';
-              /** @phpstan-ignore-line */
+                /** @phpstan-ignore-line */
                 $permission->read_only = $permissionInput == 'read_only';
-              /** @phpstan-ignore-line */
+                /** @phpstan-ignore-line */
                 $permission->save();
             }
 
@@ -284,29 +300,26 @@ class UserManagementController extends Controller
             }
 
             foreach ($departments as $departmentId) {
-              /* @var Department $department */
-                $department = Department::query()->findOrFail($departmentId);
+                /* @var Department $department */
                 if (
                     DepartmentUser::query()
-                    ->where('user_id', $user->id)
-                    ->where('department_id', $department->id)
-                    ->doesntExist()
+                        ->where('user_id', $user->id)
+                        ->where('department_id', $departmentId)
+                        ->doesntExist()
                 ) {
                     DepartmentUser::query()->create([
-                    'user_id' => $user->id,
-                    'department_id' => $department->id
+                        'user_id' => $user->id,
+                        'department_id' => $departmentId
                     ]);
                 }
             }
 
-            $departmentUsers = DepartmentUser::query()->where('user_id', $user->id)->get();
+            DepartmentUser::query()
+                ->where('user_id', $user->id)
+                ->whereIn('department_id', $departments)
+                ->delete();
 
-            foreach ($departmentUsers as $departmentUser) {
-                if (!in_array($departmentUser->department_id, $departments)) {
-                    $departmentUser->delete();
-                }
-            }
-            $description = "کاربر $user->name توسط کاربر  {$adminUser->name} با کد پرسنلی
+            $description = "کاربر $user->name توسط کاربر  $adminUser->name با کد پرسنلی
             {$user->personal_id}ویرایش شد. ";
 
             $activity = new Activity();
@@ -326,7 +339,9 @@ class UserManagementController extends Controller
         if (is_numeric($identifier)) {
             $users = User::query()->where('personal_id', $identifier)->get();
         } else {
-            $users = User::query()->where('name', 'LIKE', '%' . $identifier . '%')->get();
+            $users = User::query()
+                ->where('name', 'LIKE', '%' . $identifier . '%')
+                ->get();
         }
         if ($users->isNotEmpty()) {
             $users = $userService->getUsersDepartments($users);
