@@ -4,10 +4,10 @@ analyse:
 test:
 	@./vendor/bin/phpunit --configuration ./phpunit.xml
 
-styled:
+sniff:
 	@./vendor/bin/phpcs --standard=./phpcs.xml
 
 fix:
 	@./vendor/bin/phpcbf --standard=./phpcs.xml
 
-.PHONY: analyse test styled fix
+.PHONY: analyse test sniff fix

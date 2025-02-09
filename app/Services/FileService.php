@@ -77,11 +77,10 @@ class FileService
     }
 
     private function logger(
-        User        $user,
+        User $user,
         EntityGroup $eg,
-        string      $type
-    ): void
-    {
+        string $type
+    ): void {
         $actionTypes = [
             Activity::TYPE_CREATE => 'ایجاد',
             Activity::TYPE_PRINT => 'چاپ',
@@ -169,12 +168,11 @@ class FileService
      * @throws Exception
      */
     public function storeVoice(
-        User         $user,
+        User $user,
         UploadedFile $voice,
-        array        $departments,
-        int|null     $parentFolderId = null
-    ): void
-    {
+        array $departments,
+        int|null $parentFolderId = null
+    ): void {
         if ($voice->getMimeType() === 'application/octet-stream') {
             throw ValidationException::withMessages(
                 ['message' => 'فایل مورد نظر قایل پردازش نیست لطفا آن را به فرمت m4a تبدیل نمایید.']
@@ -231,12 +229,11 @@ class FileService
      * @throws Exception
      */
     public function storeImage(
-        User         $user,
+        User $user,
         UploadedFile $image,
-        array        $departments,
-        int|null     $parentFolderId = null
-    ): void
-    {
+        array $departments,
+        int|null $parentFolderId = null
+    ): void {
         [$fileLocation, $originalName, $disk] = $this->storeFile($image, FileDisk::IMAGE, $user);
         $extension = $image->extension();
 
@@ -282,12 +279,11 @@ class FileService
      * @throws Exception
      */
     public function storeVideo(
-        User         $user,
+        User $user,
         UploadedFile $video,
-        array        $departments,
-        int|null     $parentFolderId = null
-    ): void
-    {
+        array $departments,
+        int|null $parentFolderId = null
+    ): void {
         if ($video->getMimeType() === 'application/octet-stream') {
             throw ValidationException::withMessages(
                 ['message' => 'فایل مورد نظر قایل پردازش نیست لطفا آن را به فرمت m4a تبدیل نمایید.']
@@ -315,12 +311,11 @@ class FileService
      * @throws Exception
      */
     public function storeWord(
-        User         $user,
+        User $user,
         UploadedFile $word,
-        array        $departments,
-        ?int         $parentFolderId = null
-    ): void
-    {
+        array $departments,
+        ?int $parentFolderId = null
+    ): void {
         // Store file and get details
         [$fileLocation, $originalName, $disk] = $this->storeFile($word, FileDisk::WORD, $user);
 

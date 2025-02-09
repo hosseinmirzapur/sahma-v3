@@ -74,5 +74,4 @@ class NotificationController extends Controller
 
         return redirect()->back();
     }
-
 }
