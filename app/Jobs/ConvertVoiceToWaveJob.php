@@ -57,7 +57,8 @@ class ConvertVoiceToWaveJob implements ShouldQueue
             // Update database record
             $this->entityGroup->update([
                 'result_location' => array_merge(
-                    $this->entityGroup->result_location ?? [], ['wav_location' => $convertedPath]
+                    $this->entityGroup->result_location ?? [],
+                    ['wav_location' => $convertedPath]
                 )
             ]);
 

@@ -51,10 +51,10 @@ class OfficeService
     public function generateCsvFileEntity(string $text): string
     {
         $filename = now()->timestamp . '-' . str_replace(
-                [' ', '.'],
-                '',
-                uniqid('split_voice_', true)
-            ) . '.csv';
+            [' ', '.'],
+            '',
+            uniqid('split_voice_', true)
+        ) . '.csv';
         $storagePath = now()->toDateString() . '/' . $filename;
 
         Storage::disk('csv')->put($storagePath, $text);
@@ -69,7 +69,8 @@ class OfficeService
     {
         $voiceWindows = [];
         foreach ($entityGroup->entities as $entity) {
-            if (empty($entity->meta['csv_location']) ||
+            if (
+                empty($entity->meta['csv_location']) ||
                 !Storage::disk('csv')
                     ->exists($entity->meta['csv_location'])
             ) {

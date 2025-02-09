@@ -67,8 +67,9 @@ class DepartmentController extends Controller
             abort(403, 'شما به این بخش دسترسی ندارید.');
         }
 
-        $department->name = strval($request->input('departmentName'));
-        $department->save();
+        $department->update([
+            'name' => strval($request->input('departmentName'))
+        ]);
 
         return redirect()->back();
     }

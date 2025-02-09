@@ -112,7 +112,7 @@ class UserManagementController extends Controller
             $personalId = intval($request->input('personalId'));
 
             if (User::query()->where('personal_id', $personalId)->exists()) {
-              throw ValidationException::withMessages(['message' => 'کاربری با این کد پرسنلی وجود دارد.']);
+                throw ValidationException::withMessages(['message' => 'کاربری با این کد پرسنلی وجود دارد.']);
             }
 
             $roleTitle = strval($request->input('roleTitle'));

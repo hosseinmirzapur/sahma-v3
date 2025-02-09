@@ -1,10 +1,10 @@
-<div align="center">
+<div style="align-items: center; text-align: center">
     <a href="https://irapardaz.ir" target="_blank">
         <img src="https://irapardaz.ir/requester/images/general/irapardaz-logo.png" height="100px" alt="irapardaz Logo" title="irapardaz Logo">
     </a>
 </div>
 
-<div align="center">
+<div style="align-items: center; text-align: center">
     <a>
         <img src="https://img.shields.io/badge/License-proprietary-black" alt="License" title="License">
     </a>
@@ -23,17 +23,14 @@
     <a href="https://irapardaz.ir" target="_blank">
         <img src="https://img.shields.io/badge/Owned By-Kian Pardazesh-22418C" alt="Owner" title="Owner">
     </a>
-    <a href="https://git.kian.group/kian-pardazesh/web-projects/irapardaz-platform/-/commits/main" target="_blank">
-        <img src="https://git.kian.group/kian-pardazesh/web-projects/irapardaz-platform/badges/main/pipeline.svg" alt="pipeline status" title="pipeline status"/>
-    </a>
-    <a href="https://git.kian.group/kian-pardazesh/web-projects/sima-azad-university-platform/-/commits/main" target="_blank">
-        <img alt="coverage report" src="https://git.kian.group/kian-pardazesh/web-projects/irapardaz-platform/badges/main/coverage.svg" />
-    </a>
 </div>
 
-## About SIMA
+## About SAHMA
 
-SIMA is an integrated document management platform where users have the ability to categorize and edit documents in various formats such as PDF, image files, and audiovisual files. Additionally, this platform supports OCR for image and PDF files, as well as ASR for audio and video files, enabling users to transcribe the desired original file content into text.
+SAHMA is an integrated document management platform where users have the ability to categorize and edit documents in
+various formats such as PDF, image files, and audiovisual files. Additionally, this platform supports OCR for image and
+PDF files, as well as ASR for audio and video files, enabling users to transcribe the desired original file content into
+text.
 
 - Convert PDF and Image into text editor file with original file content.
 - Convert Audio and video into text editor file with original file audio.
@@ -44,7 +41,7 @@ SIMA is an integrated document management platform where users have the ability 
 Run unit tests with <a href="https://phpunit.de">phpunit</a>:
 
 ```shell script
-./vendor/bin/phpunit --configuration ./phpunit.xml
+make test
 ```
 
 ### php code sniffer (phpcs)
@@ -52,7 +49,7 @@ Run unit tests with <a href="https://phpunit.de">phpunit</a>:
 Check code style with <a href="https://github.com/squizlabs/PHP_CodeSniffer">php code sniffer</a>:
 
 ```shell script
-./vendor/bin/phpcs --standard=./phpcs.xml
+make styled
 ```
 
 php code sniffer comes with phpcbf to automatically correct coding standard violations.
@@ -60,7 +57,7 @@ php code sniffer comes with phpcbf to automatically correct coding standard viol
 To fix fixable(!) errors run:
 
 ```shell script
-./vendor/bin/phpcbf --standard=./phpcs.xml
+make fix
 ```
 
 ### Larastan
@@ -71,12 +68,12 @@ without actually running it. It catches whole classes of bugs even before you wr
 Find your code possible bugs with larastan:
 
 ```shell script
-./vendor/bin/phpstan analyse -c phpstan.neon --memory-limit 1G
+make analyse
 ```
 
 ## License
 
-SIMA-platform is a proprietary (non-free and closed-source) software. You have no rights to share this software with
+SAHMA-platform is a proprietary (non-free and closed-source) software. You have no rights to share this software with
 others.
 
 Copyright© 2020, Pardazesh Ettelaat-e Kian-e Iranian (Irapardaz), All rights reserved.
