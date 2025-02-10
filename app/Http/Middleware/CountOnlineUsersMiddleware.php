@@ -28,7 +28,7 @@ class CountOnlineUsersMiddleware
           // Check if a login activity has already been recorded for this session.
             if (!Session::has('login_activity_logged')) {
                 $activityService = app()->make(ActivityService::class);
-                $description = "کاربر {$user->name} وارد سیستم شد.";
+                $description = "کاربر $user->name وارد سیستم شد.";
                 $activityService->logUserAction($user, Activity::TYPE_LOGIN, $user, $description);
                 Session::put('login_activity_logged', true);
             }

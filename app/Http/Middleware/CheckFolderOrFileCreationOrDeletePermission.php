@@ -17,11 +17,10 @@ class CheckFolderOrFileCreationOrDeletePermission
    *
    * @param Request $request
    * @param Closure(Request): (Response) $next
-   * @param string ...$guards
    * @return Response
    * @throws ValidationException
    */
-    public function handle(Request $request, Closure $next, string ...$guards): Response
+    public function handle(Request $request, Closure $next): Response
     {
         if (Auth::guard('web')->check()) {
             /** @var User $user */
