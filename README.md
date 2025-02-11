@@ -1,10 +1,10 @@
-<div style="align-items: center; text-align: center">
+<div style="display: flex; justify-content: center">
     <a href="https://irapardaz.ir" target="_blank">
         <img src="https://irapardaz.ir/requester/images/general/irapardaz-logo.png" height="100px" alt="irapardaz Logo" title="irapardaz Logo">
     </a>
 </div>
 
-<div style="align-items: center; text-align: center">
+<div style="display: flex; justify-content: center; flex-wrap: wrap">
     <a>
         <img src="https://img.shields.io/badge/License-proprietary-black" alt="License" title="License">
     </a>
