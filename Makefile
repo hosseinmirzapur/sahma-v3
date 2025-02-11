@@ -10,4 +10,10 @@ sniff:
 fix:
 	@./vendor/bin/phpcbf --standard=./phpcs.xml
 
-.PHONY: analyse test sniff fix
+front:
+	@npm run watch
+
+lint-front:
+	@npm run lint
+
+.PHONY: analyse test sniff fix front

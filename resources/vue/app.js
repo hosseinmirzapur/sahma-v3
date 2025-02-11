@@ -8,6 +8,7 @@ import './app.css'
 function updateHeight () {
   document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`)
 }
+
 window.addEventListener('resize', updateHeight)
 updateHeight()
 
@@ -17,6 +18,7 @@ function updateDarkMode () {
   if (state === 'dark') document.body.classList.add('dark')
   else document.body.classList.remove('dark')
 }
+
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateDarkMode)
 updateDarkMode()
 

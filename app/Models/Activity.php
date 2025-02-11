@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Barryvdh\LaravelIdeHelper\Eloquent;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -22,7 +21,7 @@ use Illuminate\Support\Carbon;
  * @property array|null $meta
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
- * @property-read Model|\Eloquent $activity
+ * @property-read Model|Activity $activity
  * @property-read User $user
  * @method static Builder|Activity forPeriod($start, $end)
  * @method static Builder|Activity logins()
@@ -39,7 +38,6 @@ use Illuminate\Support\Carbon;
  * @method static Builder|Activity whereStatus($value)
  * @method static Builder|Activity whereUpdatedAt($value)
  * @method static Builder|Activity whereUserId($value)
- * @mixin \Eloquent
  */
 class Activity extends Model
 {
@@ -61,27 +59,24 @@ class Activity extends Model
     public const TYPE_MOVE = 'MOVE';
     public const TYPE_DOWNLOAD = 'DOWNLOAD';
 
-  /**
-   * The attributes that are mass assignable.
-   *
-   * @var array<int, string>
-   */
-    protected $fillable = [
-    'user_id',
-    'type',
-    'meta'
-    ];
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
+    protected $guarded = [];
     protected $casts = [
-    'meta' => 'json'
+        'meta' => 'json'
     ];
 
-  /**
-   * @return BelongsTo
-   */
+    /**
+     * @return BelongsTo
+     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
+
     public function activity(): MorphTo
     {
         return $this->morphTo();

@@ -17,6 +17,10 @@ use Inertia\ResponseFactory;
 
 class AuthController extends Controller
 {
+    public function __construct(private readonly ActivityService $activityService)
+    {
+    }
+
     public function index(): RedirectResponse
     {
         return redirect()->route('web.user.cartable.inbox.list');
@@ -54,7 +58,7 @@ class AuthController extends Controller
             $user->update(['password' => Hash::make($validated['password'])]);
         }
 
-        app(ActivityService::class)->logUserAction(
+        $this->activityService->logUserAction(
             $user,
             Activity::TYPE_LOGIN,
             $user,

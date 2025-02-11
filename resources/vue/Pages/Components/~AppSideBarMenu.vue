@@ -1,7 +1,6 @@
 <template>
   <aside class="relative pt-5 right-0 px-5 bg-transparent">
     <div class="flex items-center h-[96vh] flex-col items-start px-4 rounded-xl  bg-transparent">
-
       <!-- logo irpardaz-->
       <div class="">
         <Link :href="$route('web.user.dashboard.index')">
@@ -43,7 +42,6 @@
               stroke-linejoin="round" />
           </svg>
         </link>
-
       </div>
 
       <div class="flex flex-col justify-center h-full gap-y-8">

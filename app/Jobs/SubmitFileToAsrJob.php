@@ -32,11 +32,11 @@ class SubmitFileToAsrJob implements ShouldQueue
 
     private EntityGroup $entityGroup;
     private User $user;
-    private Filesystem $voiceStorage;
-    private Filesystem $csvStorage;
-    private DatabaseManager $db;
-    private AiService $aiService;
-    private OfficeService $officeService;
+    public Filesystem $voiceStorage;
+    public Filesystem $csvStorage;
+    public DatabaseManager $db;
+    public AiService $aiService;
+    public OfficeService $officeService;
 
     /**
      * @param EntityGroup $entityGroup
@@ -47,12 +47,6 @@ class SubmitFileToAsrJob implements ShouldQueue
         $this->entityGroup = $entityGroup;
         $this->user = $user;
         $this->onQueue('file::submit-to-ASR');
-
-        $this->voiceStorage = app('filesystem')->disk('voice');
-        $this->csvStorage = app('filesystem')->disk('csv');
-        $this->db = app(DatabaseManager::class);
-        $this->aiService = app(AiService::class);
-        $this->officeService = app(OfficeService::class);
     }
 
     /**
@@ -62,6 +56,11 @@ class SubmitFileToAsrJob implements ShouldQueue
      */
     public function handle(): void
     {
+        $this->voiceStorage = app('filesystem')->disk('voice');
+        $this->csvStorage = app('filesystem')->disk('csv');
+        $this->db = app(DatabaseManager::class);
+        $this->aiService = app(AiService::class);
+        $this->officeService = app(OfficeService::class);
         try {
             if ($this->entityGroup->status !== EntityGroup::STATUS_WAITING_FOR_TRANSCRIPTION) {
                 Log::warning(

@@ -12,14 +12,10 @@
     @inertiaHead
 
     <link rel="shortcut icon" href="{{ asset('fav-icon.png') }}">
-{{--    <link rel="manifest" href="{{ asset('irapardaz-manifest.json') }}">--}}
     <meta name="description" content="سامانه هوشمند مدیریت اسناد">
     <meta name="keywords" content="سامانه هوشمند مدیریت اسناد">
 </head>
 <body dir="rtl">
 @inertia
-{{--@include('requester.layout.snippets.clarity')--}}
-{{--@include('requester.layout.snippets.analytics')--}}
-{{--temporary commented--}}
 </body>
 </html>

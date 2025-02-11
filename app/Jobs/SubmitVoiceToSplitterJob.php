@@ -27,8 +27,8 @@ class SubmitVoiceToSplitterJob implements ShouldQueue
     public int $retryAfter = 7300;
 
     private EntityGroup $entityGroup;
-    private DatabaseManager $db;
-    private AiService $aiService;
+    public DatabaseManager $db;
+    public AiService $aiService;
 
     /**
      * @param EntityGroup $entityGroup
@@ -37,9 +37,6 @@ class SubmitVoiceToSplitterJob implements ShouldQueue
     {
         $this->entityGroup = $entityGroup;
         $this->onQueue('voice::submit-to-splitter');
-
-        $this->db = app(DatabaseManager::class);
-        $this->aiService = app(AiService::class);
     }
 
     /**
@@ -49,6 +46,8 @@ class SubmitVoiceToSplitterJob implements ShouldQueue
      */
     public function handle(): void
     {
+        $this->db = app(DatabaseManager::class);
+        $this->aiService = app(AiService::class);
         try {
             if ($this->entityGroup->status !== EntityGroup::STATUS_WAITING_FOR_SPLIT) {
                 Log::warning("STT Skipped: EntityGroup #{$this->entityGroup->id} is not ready for window extraction.");

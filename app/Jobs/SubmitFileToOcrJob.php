@@ -33,13 +33,13 @@ class SubmitFileToOcrJob implements ShouldQueue
 
     private EntityGroup $entityGroup;
     private User $user;
-    private Filesystem $pdfStorage;
-    private Filesystem $imageStorage;
-    private Filesystem $fileStorage;
-    private DatabaseManager $db;
-    private AiService $aiService;
-    private FileService $fileService;
-    private OfficeService $officeService;
+    public Filesystem $pdfStorage;
+    public Filesystem $imageStorage;
+    public Filesystem $fileStorage;
+    public DatabaseManager $db;
+    public AiService $aiService;
+    public FileService $fileService;
+    public OfficeService $officeService;
 
     /**
      * @param EntityGroup $entityGroup
@@ -50,14 +50,6 @@ class SubmitFileToOcrJob implements ShouldQueue
         $this->entityGroup = $entityGroup;
         $this->user = $user;
         $this->onQueue('file::submit-to-ocr');
-
-        $this->pdfStorage = app('filesystem')->disk('pdf');
-        $this->imageStorage = app('filesystem')->disk('image');
-        $this->fileStorage = app('filesystem')->disk($entityGroup->type);
-        $this->db = app(DatabaseManager::class);
-        $this->aiService = app(AiService::class);
-        $this->fileService = app(FileService::class);
-        $this->officeService = app(OfficeService::class);
     }
 
     /**
@@ -67,6 +59,13 @@ class SubmitFileToOcrJob implements ShouldQueue
      */
     public function handle(): void
     {
+        $this->pdfStorage = app('filesystem')->disk('pdf');
+        $this->imageStorage = app('filesystem')->disk('image');
+        $this->fileStorage = app('filesystem')->disk($this->entityGroup->type);
+        $this->db = app(DatabaseManager::class);
+        $this->aiService = app(AiService::class);
+        $this->fileService = app(FileService::class);
+        $this->officeService = app(OfficeService::class);
         try {
             if ($this->entityGroup->status !== EntityGroup::STATUS_WAITING_FOR_TRANSCRIPTION) {
                 Log::warning(

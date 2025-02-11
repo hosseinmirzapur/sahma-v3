@@ -3,7 +3,7 @@
   "scripts": {
     "build": "vite build -c resources/vite.config.js --emptyOutDir && vite build --ssr -c resources/vite.config.js --emptyOutDir",
     "watch": "vite -c resources/vite.config.js",
-    "lint": "eslint --ext .js,.vue resources/vue"
+    "lint": "eslint --fix --ext .js,.vue resources/vue"
   },
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.2",

@@ -2,7 +2,6 @@
   <div class="min-h-app flex">
     <div class="m-auto flex">
       <div class="flex flex-col items-center">
-
         <!-- logo irapardaz -->
         <!--    fixed bottom-48 left-96    -->
         <svg

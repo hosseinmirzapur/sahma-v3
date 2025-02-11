@@ -24,15 +24,13 @@ class ExtractVoiceFromVideoJob implements ShouldQueue
     public int $timeout = 7200;
     public int $retryAfter = 7300;
     private EntityGroup $entityGroup;
-    private Filesystem $videoStorage;
-    private Filesystem $voiceStorage;
+    public Filesystem $videoStorage;
+    public Filesystem $voiceStorage;
 
     public function __construct(EntityGroup $entityGroup)
     {
         $this->entityGroup = $entityGroup;
         $this->onQueue('file::extract-audio');
-        $this->videoStorage = app('filesystem')->disk('video');
-        $this->voiceStorage = app('filesystem')->disk('voice');
     }
 
     /**
@@ -41,6 +39,8 @@ class ExtractVoiceFromVideoJob implements ShouldQueue
      */
     public function handle(): void
     {
+        $this->videoStorage = app('filesystem')->disk('video');
+        $this->voiceStorage = app('filesystem')->disk('voice');
         try {
             if ($this->entityGroup->status !== EntityGroup::STATUS_WAITING_FOR_AUDIO_SEPARATION) {
                 Log::warning(

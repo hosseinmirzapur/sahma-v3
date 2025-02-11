@@ -197,12 +197,12 @@ class LetterService
     }
 
     /**
-     * @param Builder $query
+     * @param mixed $query
      * @param bool $isArchivedList
      * @param bool $isDeletedList
      * @return void
      */
-    private function applyArchiveOrDeleteFilters(Builder $query, bool $isArchivedList, bool $isDeletedList): void
+    private function applyArchiveOrDeleteFilters(mixed $query, bool $isArchivedList, bool $isDeletedList): void
     {
         if ($isArchivedList) {
             $query->orWhere('letters.status', Letter::STATUS_ACHIEVED);
