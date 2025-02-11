@@ -16,4 +16,19 @@ front:
 lint-front:
 	@npm run lint
 
-.PHONY: analyse test sniff fix front
+ready:
+	@echo "Installing composer dependencies..."
+	@composer install --prefer-dist --no-ansi --no-interaction --no-progress --ignore-platform-reqs
+
+	@echo "Installing npm dependencies..."
+	@npm i
+
+	@echo "Optimization..."
+	@php artisan optimize
+
+	@echo "Configuring .env variables..."
+	@cp ~/.envs/.sahma_habibi_env /var/www/sahma-habibi/.env
+
+	@echo "Setup completed!"
+
+.PHONY: analyse test sniff fix front lint-front deps
