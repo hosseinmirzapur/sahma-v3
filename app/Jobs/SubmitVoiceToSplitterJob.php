@@ -3,17 +3,20 @@
 namespace App\Jobs;
 
 use App\Models\EntityGroup;
+use App\Models\User;
 use App\Services\AiService;
+use App\Services\OfficeService;
 use Exception;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Container\BindingResolutionException;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Database\DatabaseManager;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use Throwable;
+use Illuminate\Support\Facades\Storage;
 
 class SubmitVoiceToSplitterJob implements ShouldQueue
 {
@@ -22,16 +25,16 @@ class SubmitVoiceToSplitterJob implements ShouldQueue
     use Queueable;
     use SerializesModels;
 
-    public int $tries = 3;
+    public int $tries = 1;
+
     public int $timeout = 7200;
+
     public int $retryAfter = 7300;
 
     private EntityGroup $entityGroup;
-    public DatabaseManager $db;
-    public AiService $aiService;
 
     /**
-     * @param EntityGroup $entityGroup
+     * Create a new job instance.
      */
     public function __construct(EntityGroup $entityGroup)
     {
@@ -40,70 +43,53 @@ class SubmitVoiceToSplitterJob implements ShouldQueue
     }
 
     /**
-     * @return void
+     * Execute the job.
+     * @throws Exception
      * @throws GuzzleException
-     * @throws Throwable
      */
-    public function handle(): void
+    public function handle(AiService $aiService, OfficeService $officeService): void
     {
-        $this->db = app(DatabaseManager::class);
-        $this->aiService = app(AiService::class);
         try {
-            if ($this->entityGroup->status !== EntityGroup::STATUS_WAITING_FOR_SPLIT) {
-                Log::warning("STT Skipped: EntityGroup #{$this->entityGroup->id} is not ready for window extraction.");
+            if ($this->entityGroup->status != EntityGroup::STATUS_WAITING_FOR_SPLIT) {
+                Log::warning("STT => questionAnswerGroup: #{$this->entityGroup->id} is not ready for get windows");
                 return;
             }
 
-            Log::info("STT => Processing EntityGroup #{$this->entityGroup->id} for voice splitting.");
+            $entityGroup = $this->entityGroup;
 
-            $meta = $this->entityGroup->meta ?? [];
+            $meta = $entityGroup->meta ?? [];
             if (!isset($meta['windows'])) {
-                $content = $this->entityGroup->getFileData(true);
+                $content = $entityGroup->getFileData(true);
 
-                if (empty($content)) {
-                    throw new Exception(
-                        "STT Error: Failed to retrieve voice data for EntityGroup #{$this->entityGroup->id}."
-                    );
+                if (is_null($content)) {
+                    throw new Exception("Failed to get voice date. entityGroup: #$entityGroup->id");
                 }
-
-                Log::info(
-                    "STT => Submitting EntityGroup #{$this->entityGroup->id} to AI Service for window extraction."
-                );
-                $meta['windows'] = $this->aiService->getVoiceWindows($content);
-
-                $this->db->transaction(function () use ($meta) {
-                    $this->entityGroup->meta = $meta;
-                    $this->entityGroup->save();
-                });
-
+                Log::info("
+            STT =>
+            entityGroup:#$entityGroup->id is going to submit splitter for get windows
+            ");
+                $windows = $aiService->getVoiceWindows($content);
+                $meta['windows'] = $windows;
+                $entityGroup->meta = $meta;
+                $entityGroup->save();
                 CreateSplitVoiceToEntitiesJob::dispatch($this->entityGroup);
             } else {
-                Log::info("STT => EntityGroup #{$this->entityGroup->id} already has extracted windows.");
+                Log::info("STT => entityGroup:#$entityGroup->id already got windows");
             }
-        } catch (Exception | GuzzleException $e) {
+        } catch (Exception $e) {
             $this->fail();
-            Log::error($e->getMessage());
-            throw $e; // Preserve the original exception
+            throw new Exception($e->getMessage());
         }
     }
 
-    /**
-     * @return void
-     */
     public function fail(): void
     {
-        $this->entityGroup::query()->increment('number_of_try');
-
-        $this->entityGroup->status = $this->entityGroup->number_of_try >= 3
-            ? EntityGroup::STATUS_REJECTED
-            : EntityGroup::STATUS_WAITING_FOR_RETRY;
-
+        if ($this->entityGroup->number_of_try >= 3) {
+            $this->entityGroup->status = EntityGroup::STATUS_REJECTED;
+        } else {
+            $this->entityGroup->status = EntityGroup::STATUS_WAITING_FOR_RETRY;
+        }
+        $this->entityGroup->number_of_try += 1;
         $this->entityGroup->save();
-
-        $entityGroupId = $this->entityGroup->id;
-        $numberOfTries = $this->entityGroup->number_of_try;
-        Log::error(
-            "Job failed for EntityGroup #$entityGroupId. Retry attempt: $numberOfTries/3"
-        );
     }
 }

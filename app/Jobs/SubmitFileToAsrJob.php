@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Activity;
+use App\Models\Entity;
 use App\Models\EntityGroup;
 use App\Models\User;
 use App\Services\AiService;
@@ -10,14 +11,13 @@ use App\Services\OfficeService;
 use Exception;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Database\DatabaseManager;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Throwable;
+use Illuminate\Support\Facades\Storage;
 
 class SubmitFileToAsrJob implements ShouldQueue
 {
@@ -26,21 +26,17 @@ class SubmitFileToAsrJob implements ShouldQueue
     use Queueable;
     use SerializesModels;
 
-    public int $tries = 3;
+    public int $tries = 1;
+
     public int $timeout = 7200;
+
     public int $retryAfter = 7300;
 
     private EntityGroup $entityGroup;
     private User $user;
-    public Filesystem $voiceStorage;
-    public Filesystem $csvStorage;
-    public DatabaseManager $db;
-    public AiService $aiService;
-    public OfficeService $officeService;
 
     /**
-     * @param EntityGroup $entityGroup
-     * @param User $user
+     * Create a new job instance.
      */
     public function __construct(EntityGroup $entityGroup, User $user)
     {
@@ -50,115 +46,92 @@ class SubmitFileToAsrJob implements ShouldQueue
     }
 
     /**
-     * @return void
+     * Execute the job.
+     * @throws Exception
      * @throws GuzzleException
-     * @throws Throwable
      */
-    public function handle(): void
+    public function handle(AiService $aiService, OfficeService $officeService): void
     {
-        $this->voiceStorage = app('filesystem')->disk('voice');
-        $this->csvStorage = app('filesystem')->disk('csv');
-        $this->db = app(DatabaseManager::class);
-        $this->aiService = app(AiService::class);
-        $this->officeService = app(OfficeService::class);
         try {
-            if ($this->entityGroup->status !== EntityGroup::STATUS_WAITING_FOR_TRANSCRIPTION) {
-                Log::warning(
-                    "Skipping ASR: entityGroup #{$this->entityGroup->id} is not in the correct status."
-                );
+            if ($this->entityGroup->status != EntityGroup::STATUS_WAITING_FOR_TRANSCRIPTION) {
+                Log::info("ASR => entityGroup:#{$this->entityGroup->id} is not in ASR state");
                 return;
             }
+            Log::info("ASR => Submit entityGroup:#{$this->entityGroup->id} to ASR: calling ASR");
 
-            Log::info("Starting ASR for entityGroup #{$this->entityGroup->id}");
-
+            // Submit pages to ASR
             $textASR = '';
-            $entities = $this->entityGroup->entities()->orderBy('id')->get();
-
+            $entities = $this->entityGroup->entities()->orderBy('entities.id')->get();
             foreach ($entities as $entity) {
-                $filePath = $this->voiceStorage->path($entity->file_location);
-                $ASRResult = $this->aiService->submitToASR($filePath);
+                $filePath = Storage::disk('voice')->path($entity->file_location);
+                $ASRResult = $aiService->submitToASR($filePath);
+                $contentASRResultCsv = strval($ASRResult['tsv']);
+                $csvFileLocation = $officeService->generateCsvFileEntity($contentASRResultCsv);
 
-                $csvFileLocation = $this->officeService->generateCsvFileEntity(strval($ASRResult['tsv']));
                 $meta = $entity->meta ?? [];
                 $meta['csv_location'] = $csvFileLocation;
-
-                $entity->update([
-                    'transcription_result' => strval($ASRResult['text']),
-                    'meta' => $meta,
-                ]);
-
-                $textASR .= ' ' . $ASRResult['text'];
+                $entity->transcription_result = strval($ASRResult['text']);
+                $entity->meta = $meta;
+                $entity->save();
+                $textASR .= ' ' . strval($ASRResult['text']);
             }
 
-            Log::info("ASR finished for entityGroup #{$this->entityGroup->id}");
+            Log::info("ASR => ASR has been finished for entityGroup:#{$this->entityGroup->id}");
 
-            $generateWindowsEntityGroup = $this->officeService->generateWindowsEntityGroup($this->entityGroup);
-            $wordFileLocation = $this->officeService->generateWordFile($this->entityGroup, $textASR);
-            $pdfFileLocation = $this->officeService->convertWordFileToPdf($wordFileLocation);
+            $generateWindowsEntityGroup = $officeService->generateWindowsEntityGroup($this->entityGroup);
+            $wordFileLocation = $officeService->generateWordFile($this->entityGroup, $textASR);
+            $pdfFileLocation =  $officeService->convertWordFileToPdf($wordFileLocation);
 
-            $this->db
-                ->transaction(
-                    function () use (
-                        $textASR,
-                        $generateWindowsEntityGroup,
-                        $wordFileLocation,
-                        $pdfFileLocation
-                    ) {
-                        $entityGroup = EntityGroup::query()->lockForUpdate()->findOrFail($this->entityGroup->id);
+            DB::transaction(function () use (
+                $textASR,
+                $generateWindowsEntityGroup,
+                $wordFileLocation,
+                $pdfFileLocation
+            ) {
+                /** @var EntityGroup $entityGroup */
+                $entityGroup = EntityGroup::query()
+                    ->lockForUpdate()
+                    ->find($this->entityGroup->id);
 
-                        $entityGroup->update([
-                            'transcription_result' => $textASR,
-                            'transcription_at' => now(),
-                            'result_location' => array_merge($entityGroup->result_location ?? [], [
-                                'voice_windows' => $generateWindowsEntityGroup,
-                                'word_location' => $wordFileLocation,
-                                'converted_word_to_pdf' => $pdfFileLocation,
-                            ]),
-                            'status' => EntityGroup::STATUS_TRANSCRIBED,
-                        ]);
+                $result = $entityGroup->result_location ?? [];
+                $result ['voice_windows'] = $generateWindowsEntityGroup;
+                $result ['word_location'] = $wordFileLocation;
+                $result ['converted_word_to_pdf'] = $pdfFileLocation;
 
-                        Activity::query()->create([
-                            'user_id' => $this->user->id,
-                            'status' => Activity::TYPE_TRANSCRIPTION,
-                            'activity_id' => $entityGroup->id,
-                            'activity_type' => EntityGroup::class,
-                        ]);
-                    },
-                    3
-                );
+                $entityGroup->transcription_result = $textASR;
+                $entityGroup->transcription_at = now();
+                $entityGroup->result_location = $result;
+                $entityGroup->status = EntityGroup::STATUS_TRANSCRIBED;
+                $entityGroup->save();
 
-            // Cleanup storage
+                $activity = new Activity();
+                $activity->user_id = $this->user->id;
+                $activity->status = Activity::TYPE_TRANSCRIPTION;
+                $activity->activity()->associate($entityGroup);
+                $activity->save();
+            }, 3);
+
             $splitLocation = dirname($this->entityGroup->file_location) . '/' . $this->entityGroup->id;
-            $this->voiceStorage->deleteDirectory($splitLocation);
-
+            Storage::disk('voice')->deleteDirectory($splitLocation);
+            /* @var  Entity $entity */
             foreach ($entities as $entity) {
-                $this->csvStorage->delete($entity->meta['csv_location'] ?? '');
+                Storage::disk('csv')->delete($entity->meta['csv_location'] ?? '');
             }
-
-            Log::info("Deleted storage files for entityGroup #{$this->entityGroup->id}");
-        } catch (Exception | GuzzleException $e) {
+            Log::info("ASR => delete all entities file in storage for entityGroup:#{$this->entityGroup->id}");
+        } catch (Exception $e) {
             $this->fail();
-            throw $e; // Preserve stack trace
+            throw new Exception($e->getMessage());
         }
     }
 
-    /**
-     * @return void
-     */
     public function fail(): void
     {
-        $this->entityGroup::query()->increment('number_of_try');
-
         if ($this->entityGroup->number_of_try >= 3) {
             $this->entityGroup->status = EntityGroup::STATUS_REJECTED;
         } else {
             $this->entityGroup->status = EntityGroup::STATUS_WAITING_FOR_RETRY;
         }
-
+        $this->entityGroup->number_of_try += 1;
         $this->entityGroup->save();
-
-        $entityGroupId = $this->entityGroup->id;
-        $numberOfTries = $this->entityGroup->number_of_try;
-        Log::error("Job failed for entityGroup #$entityGroupId. Retrying ($numberOfTries/3)");
     }
 }

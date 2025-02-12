@@ -2,16 +2,21 @@
 
 namespace App\Jobs;
 
+use App\Models\Activity;
 use App\Models\EntityGroup;
+use App\Models\User;
+use App\Services\AiService;
+use App\Services\OfficeService;
 use Exception;
+use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Storage;
 
 class ExtractVoiceFromVideoJob implements ShouldQueue
 {
@@ -20,13 +25,17 @@ class ExtractVoiceFromVideoJob implements ShouldQueue
     use Queueable;
     use SerializesModels;
 
-    public int $tries = 3;
-    public int $timeout = 7200;
-    public int $retryAfter = 7300;
-    private EntityGroup $entityGroup;
-    public Filesystem $videoStorage;
-    public Filesystem $voiceStorage;
+    public int $tries = 1;
 
+    public int $timeout = 7200;
+
+    public int $retryAfter = 7300;
+
+    private EntityGroup $entityGroup;
+
+    /**
+     * Create a new job instance.
+     */
     public function __construct(EntityGroup $entityGroup)
     {
         $this->entityGroup = $entityGroup;
@@ -34,79 +43,77 @@ class ExtractVoiceFromVideoJob implements ShouldQueue
     }
 
     /**
-     * @return void
+     * Execute the job.
      * @throws Exception
      */
     public function handle(): void
     {
-        $this->videoStorage = app('filesystem')->disk('video');
-        $this->voiceStorage = app('filesystem')->disk('voice');
         try {
-            if ($this->entityGroup->status !== EntityGroup::STATUS_WAITING_FOR_AUDIO_SEPARATION) {
-                Log::warning(
-                    "Skipping extraction: entityGroup #{$this->entityGroup->id} is not in the correct status."
-                );
+            if ($this->entityGroup->status != EntityGroup::STATUS_WAITING_FOR_AUDIO_SEPARATION) {
+                Log::info("VTT => entityGroup:#{$this->entityGroup->id} is not in separate state");
                 return;
             }
+            Log::info("VTT => Submit entityGroup:#{$this->entityGroup->id} to separate: calling separate");
+            // Replace 'video_file.mp4' with the actual name of your video file in the storage
+            $videoPath = Storage::disk('video')->path($this->entityGroup->file_location);
 
-            Log::info("Starting audio extraction for entityGroup: #{$this->entityGroup->id}");
+            // Create a unique filename for the extracted audio
+            $audioFileName = '/extracted_audio_' . now()->timestamp .
+                $this->entityGroup->id . '-' . pathinfo($this->entityGroup->name, PATHINFO_FILENAME) . '.wav';
+            $videoPathFromDisk = strval(pathinfo(
+                $this->entityGroup->file_location,
+                PATHINFO_DIRNAME
+            ));
+            $extractedVoicePath = Storage::disk('voice')->path($videoPathFromDisk . $audioFileName);
 
-            $videoPath = $this->videoStorage->path($this->entityGroup->file_location);
-            $outputDir = pathinfo($this->entityGroup->file_location, PATHINFO_DIRNAME);
-            $audioFileName = "/extracted_audio_{$this->entityGroup->id}_" . now()->timestamp . ".wav";
-            $extractedVoicePath = $this->voiceStorage->path($outputDir . $audioFileName);
-
-            if (!$this->voiceStorage->exists($outputDir)) {
-                $this->voiceStorage->makeDirectory($outputDir);
+            if (!Storage::disk('voice')->exists($videoPathFromDisk)) {
+                Storage::disk('voice')->makeDirectory($videoPathFromDisk);
             }
 
-            $command = [
-                'ffmpeg', '-i', $videoPath, '-vn',
-                '-acodec', 'pcm_s16le', '-ar', '44100', '-ac', '2', $extractedVoicePath
-            ];
+            $extractedVoicePath = str_replace(' ', '', $extractedVoicePath);
 
-            $process = Process::run($command);
+            // Run FFmpeg command to extract audio.
+            $command = "ffmpeg -i $videoPath -vn -acodec pcm_s16le -ar 44100 -ac 2 $extractedVoicePath";
 
-            if (!$process->successful()) {
+            Log::info($command);
+            $output = null;
+            $returnVal = null;
+            Log::info("VTT => Starting extract voice of video entityGroup:#{$this->entityGroup->id}!");
+            exec($command, $output, $returnVal);
+            Log::info(
+                "VTT => Extract voice of video
+        entityGroup:#{$this->entityGroup->id}:finished with returnVal=>" . $returnVal
+            );
+
+            if ($returnVal != 0) {
                 throw new Exception(
-                    "FFmpeg failed with exit code {$process->exitCode()}: {$process->errorOutput()}"
+                    "VTT => Return value of ffmpeg for entityGroup:#{$this->entityGroup->id} is $returnVal."
                 );
             }
 
-            $this->entityGroup->result_location = array_merge(
-                $this->entityGroup->result_location ?? [],
-                ['wav_location' => $outputDir . $audioFileName]
-            );
+            $storagePath = strval(pathinfo($this->entityGroup->file_location, PATHINFO_DIRNAME)) . $audioFileName;
+
+            $result = $this->entityGroup->result_location ?? [];
+            $result ['wav_location'] = $storagePath;
+            $this->entityGroup->result_location = $result;
             $this->entityGroup->status = EntityGroup::STATUS_WAITING_FOR_SPLIT;
             $this->entityGroup->save();
 
-            Log::info("Audio extraction completed for entityGroup #{$this->entityGroup->id}");
             SubmitVoiceToSplitterJob::dispatch($this->entityGroup);
         } catch (Exception $e) {
             $this->fail();
-            throw $e; // Preserve original stack trace
+            throw new Exception($e->getMessage());
         }
     }
 
-    /**
-     * @return void
-     */
     public function fail(): void
     {
-        $this->entityGroup::query()->increment('number_of_try');
-
         if ($this->entityGroup->number_of_try >= 3) {
             $this->entityGroup->status = EntityGroup::STATUS_REJECTED;
         } else {
             $this->entityGroup->status = EntityGroup::STATUS_WAITING_FOR_RETRY;
         }
-
-        $entityGroupId = $this->entityGroup->id;
-        $numberOfTry = $this->entityGroup->number_of_try;
-
+        $this->entityGroup->number_of_try += 1;
         $this->entityGroup->save();
-        Log::error(
-            "Job failed for entityGroup #$entityGroupId. Retrying ($numberOfTry/3)"
-        );
     }
 }

@@ -11,14 +11,14 @@ use App\Services\OfficeService;
 use Exception;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Database\DatabaseManager;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Throwable;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class SubmitFileToOcrJob implements ShouldQueue
 {
@@ -27,23 +27,17 @@ class SubmitFileToOcrJob implements ShouldQueue
     use Queueable;
     use SerializesModels;
 
-    public int $tries = 3;
+    public int $tries = 1;
+
     public int $timeout = 7200;
+
     public int $retryAfter = 7300;
 
     private EntityGroup $entityGroup;
     private User $user;
-    public Filesystem $pdfStorage;
-    public Filesystem $imageStorage;
-    public Filesystem $fileStorage;
-    public DatabaseManager $db;
-    public AiService $aiService;
-    public FileService $fileService;
-    public OfficeService $officeService;
 
     /**
-     * @param EntityGroup $entityGroup
-     * @param User $user
+     * Create a new job instance.
      */
     public function __construct(EntityGroup $entityGroup, User $user)
     {
@@ -53,113 +47,99 @@ class SubmitFileToOcrJob implements ShouldQueue
     }
 
     /**
-     * @return void
+     * Execute the job.
+     * @throws Exception
      * @throws GuzzleException
-     * @throws Throwable
      */
-    public function handle(): void
+    public function handle(AiService $aiService, OfficeService $officeService): void
     {
-        $this->pdfStorage = app('filesystem')->disk('pdf');
-        $this->imageStorage = app('filesystem')->disk('image');
-        $this->fileStorage = app('filesystem')->disk($this->entityGroup->type);
-        $this->db = app(DatabaseManager::class);
-        $this->aiService = app(AiService::class);
-        $this->fileService = app(FileService::class);
-        $this->officeService = app(OfficeService::class);
         try {
-            if ($this->entityGroup->status !== EntityGroup::STATUS_WAITING_FOR_TRANSCRIPTION) {
-                Log::warning(
-                    "OCR Skipped: entityGroup #{$this->entityGroup->id} is not in the correct state."
-                );
+            if ($this->entityGroup->status != EntityGroup::STATUS_WAITING_FOR_TRANSCRIPTION) {
+                Log::info("OCR => entityGroup:#{$this->entityGroup->id} is not in OCR state");
                 return;
             }
-
-            Log::info("Starting OCR for entityGroup #{$this->entityGroup->id}");
-
-            // Determine file type and location
-            if (!empty($this->entityGroup->result_location['converted_word_to_pdf'])) {
-                $disk = $this->pdfStorage;
-                $fileLocation = $this->entityGroup->result_location['converted_word_to_pdf'];
-            } elseif (!empty($this->entityGroup->meta['tif_converted_png_location'])) {
-                $disk = $this->imageStorage;
-                $fileLocation = $this->entityGroup->meta['tif_converted_png_location'];
+            Log::info("OCR => Submit entityGroup:#{$this->entityGroup->id} to ocr: calling ocr");
+            if (isset($this->entityGroup->result_location['converted_word_to_pdf'])) {
+                $disk = 'pdf';
+                $fileLocation = $this->entityGroup->result_location['converted_word_to_pdf'] ?? '';
+            } elseif (isset($this->entityGroup->meta['tif_converted_png_location'])) {
+                $disk = 'image';
+                $fileLocation = $this->entityGroup->meta['tif_converted_png_location'] ?? '';
             } else {
-                $disk = $this->fileStorage;
+                $disk = $this->entityGroup->type;
                 $fileLocation = $this->entityGroup->file_location;
             }
+            // Submit pages to OCR
+            $filePath = Storage::disk($disk)->path($fileLocation);
 
-            $filePath = $disk->path($fileLocation);
-            $isImage = $this->entityGroup->type === 'image';
-
-            // Submit file to OCR service
-            $ocrResult = $this->aiService->submitToOcr($filePath, $isImage);
-            Log::info("OCR Completed for entityGroup #{$this->entityGroup->id}");
-
-            $downloadedFile = $this->aiService->downloadSearchableFile(strval($ocrResult['pdf_link']));
-            $OCRLocation = dirname(
-                $this->entityGroup->file_location
-            ) . '/Transcripted-' . pathinfo(
-                $this->entityGroup->file_location,
-                PATHINFO_FILENAME
-            ) . '.pdf';
-
-            if (!$this->pdfStorage->put($OCRLocation, $downloadedFile)) {
-                throw new Exception('Failed to write OCR PDF to storage.');
+            if ($this->entityGroup->type == 'image') {
+                $isImage = true;
+            } else {
+                $isImage = false;
             }
 
-            // Add watermark to the OCR PDF
-            $fileWaterMarkedPath = $this->fileService->addWaterMarkToPdf($this->entityGroup, $OCRLocation);
+            $ocrResult = $aiService->submitToOcr($filePath, $isImage);
 
-            // Generate Word file from OCR text
-            $textOcr = trim(strval($ocrResult['text']));
-            $wordFileLocation = $this->officeService->generateWordFile($this->entityGroup, $textOcr);
+            Log::info("OCR => OCR has been finished for entityGroup:#{$this->entityGroup->id}");
 
-            // Database update within a transaction
-            $this->db->transaction(function () use ($OCRLocation, $textOcr, $wordFileLocation, $fileWaterMarkedPath) {
-                $entityGroup = EntityGroup::query()->lockForUpdate()->findOrFail($this->entityGroup->id);
+            $linkSearchablePdf = strval($ocrResult['pdf_link']);
+            $downloadedFile = $aiService->downloadSearchableFile($linkSearchablePdf);
+            $location = strval(pathinfo($this->entityGroup->file_location, PATHINFO_DIRNAME));
+            $OCRLocation = $location . '/Transcripted-' . strval(
+                    pathinfo($this->entityGroup->file_location, PATHINFO_FILENAME)
+                ) . '.pdf';
+            if (Storage::disk('pdf')->put($OCRLocation, $downloadedFile) === false) {
+                throw new Exception('Failed to write data in to storage.');
+            }
 
-                $entityGroup->update([
-                    'transcription_result' => $textOcr,
-                    'transcription_at' => now(),
-                    'result_location' => array_merge($entityGroup->result_location ?? [], [
-                        'pdf_location' => $OCRLocation,
-                        'pdf_watermark_location' => $fileWaterMarkedPath,
-                        'word_location' => $wordFileLocation,
-                        'text_eng' => $wordFileLocation,
-                    ]),
-                    'status' => EntityGroup::STATUS_TRANSCRIBED,
-                ]);
+            $fileWaterMarkedPath = FileService::addWaterMarkToPdf($this->entityGroup, $OCRLocation);
 
-                Activity::query()->create([
-                    'user_id' => $this->user->id,
-                    'status' => Activity::TYPE_TRANSCRIPTION,
-                    'activity_id' => $entityGroup->id,
-                    'activity_type' => EntityGroup::class,
-                ]);
+            $textOcr = strval($ocrResult['text']);
+            $wordFileLocation = $officeService->generateWordFile($this->entityGroup, $textOcr);
+
+            DB::transaction(function () use (
+                $OCRLocation,
+                $textOcr,
+                $wordFileLocation,
+                $fileWaterMarkedPath
+            ) {
+                /** @var EntityGroup $entityGroup */
+                $entityGroup = EntityGroup::query()
+                    ->lockForUpdate()
+                    ->find($this->entityGroup->id);
+
+                $result = $entityGroup->result_location ?? [];
+                $result ['pdf_location'] = $OCRLocation;
+                $result ['pdf_watermark_location'] = $fileWaterMarkedPath;
+                $result ['word_location'] = $wordFileLocation;
+                $result ['text_eng'] = $wordFileLocation;
+
+                $entityGroup->transcription_result = trim($textOcr);
+                $entityGroup->transcription_at = now();
+                $entityGroup->result_location = $result;
+                $entityGroup->status = EntityGroup::STATUS_TRANSCRIBED;
+                $entityGroup->save();
+
+                $activity = new Activity();
+                $activity->user_id = $this->user->id;
+                $activity->status = Activity::TYPE_TRANSCRIPTION;
+                $activity->activity()->associate($entityGroup);
+                $activity->save();
             }, 3);
-        } catch (Exception | GuzzleException $e) {
+        } catch (Exception $e) {
             $this->fail();
-            throw $e; // Preserve the stack trace
+            throw new Exception($e->getMessage());
         }
     }
 
-    /**
-     * @return void
-     */
     public function fail(): void
     {
-        $this->entityGroup::query()->increment('number_of_try');
-
         if ($this->entityGroup->number_of_try >= 3) {
             $this->entityGroup->status = EntityGroup::STATUS_REJECTED;
         } else {
             $this->entityGroup->status = EntityGroup::STATUS_WAITING_FOR_RETRY;
         }
-
+        $this->entityGroup->number_of_try += 1;
         $this->entityGroup->save();
-
-        $entityGroupId = $this->entityGroup->id;
-        $numberOfTries = $this->entityGroup->number_of_try;
-        Log::error("Job failed for entityGroup #$entityGroupId. Retrying ($numberOfTries/3)");
     }
 }
