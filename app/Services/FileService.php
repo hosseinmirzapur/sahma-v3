@@ -118,7 +118,7 @@ class FileService
             throw ValidationException::withMessages(
                 ['message' => 'فایل مورد نظر قایل پردازش نیست لطفا آن را به فرمت m4a تبدیل نمایید.']
             );
-        };
+        }
         $voiceOriginalFileName = $voice->getClientOriginalName();
 
         if ($voice->getClientOriginalExtension() === 'm4a' && $voice->getMimeType() === 'video/3gpp') {

@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
 
@@ -192,7 +193,8 @@ class EntityGroup extends Model
     public function getFileData(bool $getWavFile = false): ?string
     {
         if ($getWavFile) {
-            $data = Storage::disk('voice')->get($this->result_location['wav_location'] ?? '');
+            $data = Storage::disk('voice')
+                ->get($this->result_location['wav_location'] ?? $this->file_location ?? '');
         } else {
             if (str_contains($this->name, 'tif')) {
                 $data = Storage::disk($this->type)->get($this->meta['tif_converted_png_location'] ?? '');
