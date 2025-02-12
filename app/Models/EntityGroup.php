@@ -17,9 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -73,7 +71,6 @@ use Throwable;
  * @method static Builder|EntityGroup whereType($value)
  * @method static Builder|EntityGroup whereUpdatedAt($value)
  * @method static Builder|EntityGroup whereUserId($value)
- * @mixin Eloquent
  */
 class EntityGroup extends Model
 {
@@ -195,13 +192,7 @@ class EntityGroup extends Model
     public function getFileData(bool $getWavFile = false): ?string
     {
         if ($getWavFile) {
-            $audioLocation = '';
-            if (isset($this->result_location['wav_location'])) {
-                Log::info("EntityGroup: removing space from pathname");
-                $audioLocation = Str::remove([' ', ''], $this->result_location['wav_location']);
-            }
-            Log::info("Trying to get data from audioLocation: $audioLocation");
-            $data = Storage::disk('voice')->get($audioLocation);
+            $data = Storage::disk('voice')->get($this->result_location['wav_location'] ?? '');
         } else {
             if (str_contains($this->name, 'tif')) {
                 $data = Storage::disk($this->type)->get($this->meta['tif_converted_png_location'] ?? '');
@@ -213,14 +204,10 @@ class EntityGroup extends Model
                     $disk = $this->type;
                     $fileLocation = $this->file_location;
                 }
-                Log::info("FILE LOCATION: $fileLocation");
                 $data = Storage::disk($disk)->get($fileLocation);
             }
         }
         if (empty($data)) {
-            Log::info(
-                "EntityGroup: no data found for $this->name :: $this->result_location"
-            );
             throw new Exception("Failed to get entity data. EntityGroup id: #$this->id");
         }
         return $data;
