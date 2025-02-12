@@ -31,4 +31,13 @@ ready:
 
 	@echo "Setup completed!"
 
-.PHONY: analyse test sniff fix front lint-front deps
+update:
+	@echo "Updating with the latest git changes"
+	@git pull
+
+stop:
+	@sudo supervisorctl stop sahma-habibi-renderer sahma-habibi-web sahma-habibi-worker
+start:
+	@sudo supervisorctl start sahma-habibi-renderer sahma-habibi-web sahma-habibi-worker
+
+.PHONY: analyse test sniff fix front lint-front deps update
