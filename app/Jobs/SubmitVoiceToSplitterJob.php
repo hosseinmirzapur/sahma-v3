@@ -72,7 +72,8 @@ class SubmitVoiceToSplitterJob implements ShouldQueue
                 $meta['windows'] = $this->aiService->getVoiceWindows($content);
 
                 $this->db->transaction(function () use ($meta) {
-                    $this->entityGroup->update(['meta' => $meta]);
+                    $this->entityGroup->meta = $meta;
+                    $this->entityGroup->save();
                 });
 
                 CreateSplitVoiceToEntitiesJob::dispatch($this->entityGroup);
@@ -81,6 +82,7 @@ class SubmitVoiceToSplitterJob implements ShouldQueue
             }
         } catch (Exception | GuzzleException $e) {
             $this->fail();
+            Log::error($e->getMessage());
             throw $e; // Preserve the original exception
         }
     }

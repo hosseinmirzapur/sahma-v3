@@ -73,7 +73,7 @@ use Throwable;
  * @method static Builder|EntityGroup whereType($value)
  * @method static Builder|EntityGroup whereUpdatedAt($value)
  * @method static Builder|EntityGroup whereUserId($value)
- * @mixin \Eloquent
+ * @mixin Eloquent
  */
 class EntityGroup extends Model
 {
@@ -195,12 +195,13 @@ class EntityGroup extends Model
     public function getFileData(bool $getWavFile = false): ?string
     {
         if ($getWavFile) {
-            $audiLocation = '';
+            $audioLocation = '';
             if (isset($this->result_location['wav_location'])) {
                 Log::info("EntityGroup: removing space from pathname");
-                $audiLocation = Str::remove([' ', ''], $this->result_location['wav_location']);
+                $audioLocation = Str::remove([' ', ''], $this->result_location['wav_location']);
             }
-            $data = Storage::disk('voice')->get($audiLocation);
+            Log::info("Trying to get data from audioLocation: $audioLocation");
+            $data = Storage::disk('voice')->get($audioLocation);
         } else {
             if (str_contains($this->name, 'tif')) {
                 $data = Storage::disk($this->type)->get($this->meta['tif_converted_png_location'] ?? '');
@@ -212,10 +213,14 @@ class EntityGroup extends Model
                     $disk = $this->type;
                     $fileLocation = $this->file_location;
                 }
+                Log::info("FILE LOCATION: $fileLocation");
                 $data = Storage::disk($disk)->get($fileLocation);
             }
         }
         if (empty($data)) {
+            Log::info(
+                "EntityGroup: no data found for $this->name :: $this->result_location"
+            );
             throw new Exception("Failed to get entity data. EntityGroup id: #$this->id");
         }
         return $data;
