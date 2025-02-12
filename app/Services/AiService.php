@@ -13,6 +13,7 @@ class AiService
     private Client $client;
     private string $ocrUrl;
     private string $sttUrl;
+    private string $downloadPdfServiceUrl;
     private string $voiceSplitterUrl;
 
     public function __construct()
@@ -20,6 +21,7 @@ class AiService
         $this->client = new Client();
         $this->ocrUrl = strval(config('ai-services.ocr.url'));
         $this->sttUrl = strval(config('ai-services.stt.url'));
+        $this->downloadPdfServiceUrl = strval(config('ai-services.ocr.downloadSearchablePdfLink'));
         $this->voiceSplitterUrl = strval(config('ai-services.stt.voice-splitter-url'));
     }
 
@@ -35,7 +37,7 @@ class AiService
 
         $fileResource = fopen($filePath, 'r');
         if ($fileResource === false) {
-            throw new Exception("Failed to open file: {$filePath}");
+            throw new Exception("Failed to open file: $filePath");
         }
 
         $options = [
@@ -67,7 +69,7 @@ class AiService
     {
         $response = $this->sendRequest(
             'GET',
-            "{$this->ocrUrl}downloadSearchablePdfLink/{$link}",
+            "$this->downloadPdfServiceUrl$link",
             [],
             'download searchable PDF',
             false
@@ -86,7 +88,7 @@ class AiService
     {
         $fileResource = fopen($filePath, 'r');
         if ($fileResource === false) {
-            throw new Exception("Failed to open audio file: {$filePath}");
+            throw new Exception("Failed to open audio file: $filePath");
         }
 
         $options = [
