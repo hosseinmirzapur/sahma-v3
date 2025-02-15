@@ -169,7 +169,10 @@ Route::middleware('auth:web')->group(function () {
                 Route::post('/rename/{fileId?}', [FileController::class, 'rename'])->name('rename');
 
                 Route::get('/print/{fileId?}', [FileController::class, 'printOriginalFile'])
-                ->name('print.original');
+                    ->name('print.original');
+
+                Route::post('/manual-process/{fileId?}', [FileController::class, 'manualProcess'])
+                    ->name('manual-process');
             });
 
             Route::post('/upload/{folderId?}', [FileController::class, 'upload'])->name('upload');

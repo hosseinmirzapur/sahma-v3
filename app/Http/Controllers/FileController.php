@@ -655,4 +655,39 @@ class FileController extends Controller
             'message' => 'فایل مورد نظر با موفقیت ویرایش شد!'
         ]);
     }
+
+    /**
+     * @param string|null $fileId
+     * @return RedirectResponse
+     * @throws ValidationException
+     */
+    public function manualProcess(?string $fileId): RedirectResponse
+    {
+        $entityGroup = EntityGroup::query()
+            ->where('slug', $fileId)
+            ->firstOrFail();
+        switch ($entityGroup->type) {
+            case 'word':
+            case 'image':
+            case 'pdf':
+                SubmitFileToOcrJob::dispatch($entityGroup, $entityGroup->user);
+                break;
+            case 'voice':
+                if (str_contains($entityGroup->file_location, 'wav')) {
+                    SubmitVoiceToSplitterJob::dispatch($entityGroup);
+                } else {
+                    ConvertVoiceToWaveJob::dispatch($entityGroup);
+                }
+                break;
+            case 'video':
+                ExtractVoiceFromVideoJob::dispatch($entityGroup);
+                break;
+            default:
+                throw ValidationException::withMessages([
+                    'message' => 'فرمت فایل در حال بررسی پشتیبانی نمیشود'
+                ]);
+        }
+
+        return redirect()->route('web.user.dashboard.index');
+    }
 }

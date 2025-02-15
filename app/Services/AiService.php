@@ -2,17 +2,10 @@
 
 namespace App\Services;
 
-use App\Models\Activity;
-use App\Models\Department;
-use App\Models\DepartmentFile;
-use App\Models\EntityGroup;
-use App\Models\User;
 use Exception;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\RequestOptions;
-use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class AiService

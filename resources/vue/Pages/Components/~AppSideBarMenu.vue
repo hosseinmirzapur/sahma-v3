@@ -1,6 +1,6 @@
 <template>
   <aside class="relative pt-5 right-0 px-5 bg-transparent">
-    <div class="flex items-center h-[96vh] flex-col items-start px-4 rounded-xl  bg-transparent">
+    <div class="flex h-[96vh] flex-col items-start px-4 rounded-xl  bg-transparent">
       <!-- logo irpardaz-->
       <div class="">
         <Link :href="$route('web.user.dashboard.index')">
@@ -41,7 +41,7 @@
               stroke-width="10"
               stroke-linejoin="round" />
           </svg>
-        </link>
+        </Link>
       </div>
 
       <div class="flex flex-col justify-center h-full gap-y-8">
@@ -79,7 +79,7 @@
         <p class="w-full text-sm text-center text-gray-600 my-3">
           version 2.0
         </p>
-      </link>
+      </Link>
     </div>
   </aside>
 </template>
@@ -95,15 +95,11 @@ defineOptions({
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const props = defineProps({
-  authUser: { type: Object, required: true }
+  authUser: { type: Object, required: true },
+  hasCartable: { type: Boolean, required: false }
 })
-const options = [
-  {
-    slug: '/cartable',
-    icon: BriefcaseIcon,
-    name: 'کارتابل',
-    route: 'web.user.cartable.inbox.list'
-  },
+
+let options = [
   {
     slug: '/dashboard',
     icon: FolderIcon,
@@ -131,6 +127,18 @@ const options = [
     route: 'web.user.report.users'
   }
 ]
+if (props.hasCartable) {
+  options = [
+    {
+      slug: '/cartable',
+      icon: BriefcaseIcon,
+      name: 'کارتابل',
+      route: 'web.user.cartable.inbox.list'
+    },
+    ...options
+  ]
+}
+
 const isTooltip = ref([])
 </script>
 <style scoped lang="scss">

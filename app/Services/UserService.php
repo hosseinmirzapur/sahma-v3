@@ -15,7 +15,7 @@ class UserService
             $usersQuery->where('created_by', $adminUser->id);
         }
 
-        $users = $usersQuery->with(['role.permission', 'departments:id,name'])->get();
+        $users = $usersQuery->with(['role.permission', 'userDepartments'])->get();
 
         return $this->getUsersDepartments($users);
     }

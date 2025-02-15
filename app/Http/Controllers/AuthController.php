@@ -66,7 +66,11 @@ class AuthController extends Controller
         );
 
         Auth::guard('web')->login($user);
-        return redirect()->route('web.user.cartable.inbox.list');
+        if (config('ui.has_cartable')) {
+            return redirect()->route('web.user.cartable.inbox.list');
+        }
+
+        return redirect()->route('web.user.dashboard.index');
     }
 
     public function logout(Request $request, ActivityService $activityService): RedirectResponse

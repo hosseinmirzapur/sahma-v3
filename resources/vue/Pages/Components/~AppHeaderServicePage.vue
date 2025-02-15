@@ -23,16 +23,17 @@
         v-if="file?.status ==='WAITING_FOR_AUDIO_SEPARATION' ||
           file?.status ==='WAITING_FOR_TRANSCRIPTION'||
           file?.status ==='WAITING_FOR_SPLIT'"
-        class="text-white w-[20%] items-center border px-4 py-3 rounded-xl border-gray-100 text-gray-100 cursor-default"
-        v-text=" 'در حال پردازش'" />
+        class="w-[20%] items-center border px-4 py-3 rounded-xl border-gray-100 text-gray-100 cursor-pointer hover:bg-white hover:text-primary transition-all"
+        @click.prevent="handleManualProcess(file)"
+        v-text="aiServiceMode === 'auto' ? 'در حال پردازش' : 'پردازش دستی'" />
       <button
         v-if="file?.status ==='WAITING_FOR_RETRY'"
-        class="text-white w-[20%] text-white items-center border px-4 py-3 rounded-xl bg-orange-600"
+        class="w-[20%] text-white items-center border px-4 py-3 rounded-xl bg-orange-600"
         @click.prevent="tryAgain(file)"
         v-text="`پردازش مجدد`" />
       <button
         v-if="file?.status ==='REJECTED'"
-        class="text-white w-[20%] text-white items-center border px-4 py-3 rounded-xl bg-red-600 cursor-default"
+        class="w-[20%] text-white items-center border px-4 py-3 rounded-xl bg-red-600 cursor-default"
         v-text="`پردازش نمی‌شود`" />
       <div class="w-full flex justify-end">
         <!--        list options-->
@@ -212,7 +213,8 @@ const props = defineProps({
   searchedInput: { type: String, default: '' },
   downloadRoute: { type: String, required: true },
   fileType: { type: String, required: true },
-  activities: { type: Array, required: true }
+  activities: { type: Array, required: true },
+  aiServiceMode: { type: String }
 })
 const options = [
   {
@@ -424,6 +426,20 @@ const handleEnterPressed = () => {
   })
 
   if (findInput.value) findInput.value?.dispatchEvent(enterEvent)
+}
+
+const handleManualProcess = (file) => {
+  if (props.aiServiceMode === 'auto') {
+    return
+  }
+  Inertia.visit(route('web.user.dashboard.file.manual-process', { fileId: file?.slug }), {
+    method: 'post',
+    replace: true,
+    preserveState: true,
+    onError: (e) => {
+      console.log(e)
+    }
+  })
 }
 
 function executePrint () {

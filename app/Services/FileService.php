@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Helper\AudioHelper;
+use App\Helper\ConfigHelper;
 use App\Jobs\ConvertVoiceToWaveJob;
 use App\Jobs\ExtractVoiceFromVideoJob;
 use App\Jobs\SubmitFileToOcrJob;
@@ -101,7 +102,9 @@ class FileService
 
             return $entityGroup;
         });
-
+        if (ConfigHelper::isAiServiceManual()) {
+            return;
+        }
         SubmitFileToOcrJob::dispatch($entityGroup, $entityGroup->user);
     }
 
@@ -194,11 +197,15 @@ class FileService
             return $entityGroup;
         }, 3);
 
+        if (ConfigHelper::isAiServiceManual()) {
+            return;
+        }
+
         if ($extension != 'wav') {
             Log::info(
                 "STT =>
                 entityGroup: #$entityGroup->id audio file need to be converted to .wav it's ($extension)
-        "
+                "
             );
             ConvertVoiceToWaveJob::dispatch($entityGroup);
         } else {
@@ -296,6 +303,10 @@ class FileService
             return $entityGroup;
         }, 3);
 
+        if (ConfigHelper::isAiServiceManual()) {
+            return;
+        }
+
         SubmitFileToOcrJob::dispatch($entityGroup, $entityGroup->user);
     }
 
@@ -369,6 +380,11 @@ class FileService
 
             return $entityGroup;
         }, 3);
+
+        if (ConfigHelper::isAiServiceManual()) {
+            return;
+        }
+
         ExtractVoiceFromVideoJob::dispatch($entityGroup);
     }
 
@@ -416,7 +432,7 @@ class FileService
             Storage::disk('word')->get($wordFileLocation)
         ));
 
-        $command = $command = "unoconv -f pdf $tmpFilePath";
+        $command = "unoconv -f pdf $tmpFilePath";
         $output = null;
         $returnVal = null;
         Log::info("Starting convert word to pdf!");
@@ -464,6 +480,10 @@ class FileService
 
             return $entityGroup;
         }, 3);
+
+        if (ConfigHelper::isAiServiceManual()) {
+            return;
+        }
 
         SubmitFileToOcrJob::dispatch($entityGroup, $entityGroup->user);
     }
