@@ -86,6 +86,8 @@ class EntityGroup extends Model
     public const STATUS_REJECTED = 'REJECTED';
     public const STATUS_ZIPPED = 'ZIPPED';
     public const STATUS_REPORT = 'REPORT';
+    public const STATUS_WAITING_FOR_MANUAL_PROCESS = 'STATUS_WAITING_FOR_MANUAL_PROCESS';
+    public const STATUS_MANUAL_PROCESS_DONE = 'STATUS_MANUAL_PROCESS_DONE';
 
     protected $fillable = [
         'name', 'user_id', 'parent_folder_id', 'type',

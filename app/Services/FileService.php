@@ -398,7 +398,6 @@ class FileService
         int|null $parentFolderId = null
     ): void {
         $wordOriginalFileName = $word->getClientOriginalName();
-
         $extension = $word->extension();
 
         $nowDate = now()->toDateString();
@@ -407,49 +406,68 @@ class FileService
         $fileName = "$hash-$now.$extension";
         $originalFilePath = "$nowDate";
 
+        // Store the uploaded word file
         $wordFileLocation = $word->storeAs(
             $originalFilePath,
             $fileName,
-            [
-                'disk' => 'word'
-            ]
+            ['disk' => 'word']
         );
-
-        $filenameOriginalWord = strval(pathinfo(strval($wordFileLocation), PATHINFO_FILENAME));
-        $baseNameOriginalWord = strval(pathinfo(strval($wordFileLocation), PATHINFO_BASENAME));
-        $baseDirOriginalWord = strval(pathinfo(strval($wordFileLocation), PATHINFO_DIRNAME));
 
         if ($wordFileLocation === false) {
-            throw new Exception('Failed to store file in storage');
+            throw new Exception('Failed to store Word file in storage.');
         }
 
-        Log::info("WORD => Stored word file to disk word user: #$user->id.");
+        Log::info("WORD => Stored word file to disk 'word' for user: #$user->id.");
 
-        $tmpFilePath = "/tmp/$baseNameOriginalWord";
-        $tempPdfFilePath = "/tmp/$filenameOriginalWord.pdf";
+        // Define safe temporary storage paths
+        $tmpDir = storage_path('app/tmp');
+        if (!file_exists($tmpDir)) {
+            mkdir($tmpDir, 0777, true);
+        }
 
-        file_put_contents("/tmp/$baseNameOriginalWord", strval(
-            Storage::disk('word')->get($wordFileLocation)
-        ));
+        $filenameOriginalWord = pathinfo($wordFileLocation, PATHINFO_FILENAME);
+        $baseNameOriginalWord = pathinfo($wordFileLocation, PATHINFO_BASENAME);
+        $baseDirOriginalWord = pathinfo($wordFileLocation, PATHINFO_DIRNAME);
 
-        $command = "unoconv -f pdf $tmpFilePath";
-        $output = null;
+        $tmpFilePath = "$tmpDir/$baseNameOriginalWord";
+        $tempPdfFilePath = "$tmpDir/$filenameOriginalWord.pdf";
+
+        // Save the Word file to a temporary location
+        file_put_contents($tmpFilePath, Storage::disk('word')->get($wordFileLocation));
+
+        // Convert Word file to PDF using unoconv
+        $command = "unoconv -f pdf " . escapeshellarg($tmpFilePath);
+        $output = [];
         $returnVal = null;
-        Log::info("Starting convert word to pdf!");
-        exec($command, $output, $returnVal);
-        Log::info($command);
-        Log::info(
-            "converting finished with returnVal=>" . $returnVal
-        );
 
-        $pdfFileLocation = "$baseDirOriginalWord/$filenameOriginalWord.pdf";
-        if (!Storage::disk('pdf')->put($pdfFileLocation, strval(file_get_contents($tempPdfFilePath)))) {
-            throw new Exception("Failed to put converted word file.");
+        Log::info("Starting Word to PDF conversion: $command");
+        exec($command . ' 2>&1', $output, $returnVal);
+
+        Log::info("unoconv output: " . implode("\n", $output));
+        Log::info("unoconv exit code: " . $returnVal);
+
+        // Validate if conversion succeeded
+        if ($returnVal !== 0 || !file_exists($tempPdfFilePath)) {
+            throw new Exception("Failed to convert Word to PDF. Output: " . implode("\n", $output));
         }
 
-        unlink($tmpFilePath);
+        Log::info("Word to PDF conversion successful.");
 
-        /* @var EntityGroup $entityGroup */
+        // Define final PDF storage path
+        $pdfFileLocation = "$baseDirOriginalWord/$filenameOriginalWord.pdf";
+
+        // Move the converted PDF file to Laravel storage
+        if (!Storage::disk('pdf')->put($pdfFileLocation, file_get_contents($tempPdfFilePath))) {
+            throw new Exception("Failed to store converted PDF in storage.");
+        }
+
+        Log::info("Stored converted PDF file successfully.");
+
+        // Clean up temporary files
+        unlink($tmpFilePath);
+        unlink($tempPdfFilePath);
+
+        // Save file metadata and assign to departments
         $entityGroup = DB::transaction(function () use (
             $wordFileLocation,
             $pdfFileLocation,
@@ -458,7 +476,7 @@ class FileService
             $departments,
             $wordOriginalFileName
         ) {
-            $result ['converted_word_to_pdf'] = $pdfFileLocation;
+            $result['converted_word_to_pdf'] = $pdfFileLocation;
 
             $entityGroup = EntityGroup::createWithSlug([
                 'user_id' => $user->id,
@@ -470,23 +488,26 @@ class FileService
                 'result_location' => $result
             ]);
 
-            $departmentFileData = collect($departments)->map(function ($departmentId) use ($entityGroup) {
-                return [
-                    'entity_group_id' => $entityGroup->id,
-                    'department_id' => $departmentId,
-                ];
-            })->toArray();
+            // Insert department relationships
+            $departmentFileData = collect($departments)->map(fn($departmentId) => [
+                'entity_group_id' => $entityGroup->id,
+                'department_id' => $departmentId,
+            ])->toArray();
+
             DepartmentFile::query()->insert($departmentFileData);
 
             return $entityGroup;
         }, 3);
 
-        if (ConfigHelper::isAiServiceManual()) {
-            return;
-        }
+        Log::info("EntityGroup created for user #$user->id with ID: " . $entityGroup->id);
 
-        SubmitFileToOcrJob::dispatch($entityGroup, $entityGroup->user);
+        // Dispatch OCR job if AI service is not in manual mode
+        if (!ConfigHelper::isAiServiceManual()) {
+            SubmitFileToOcrJob::dispatch($entityGroup, $entityGroup->user);
+            Log::info("SubmitFileToOcrJob dispatched for EntityGroup #$entityGroup->id");
+        }
     }
+
 
     /**
      * @throws ValidationException

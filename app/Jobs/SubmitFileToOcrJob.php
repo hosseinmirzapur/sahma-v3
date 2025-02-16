@@ -54,7 +54,12 @@ class SubmitFileToOcrJob implements ShouldQueue
     public function handle(AiService $aiService, OfficeService $officeService): void
     {
         try {
-            if ($this->entityGroup->status != EntityGroup::STATUS_WAITING_FOR_TRANSCRIPTION) {
+            if (
+                !in_array(
+                    $this->entityGroup->status,
+                    [EntityGroup::STATUS_WAITING_FOR_TRANSCRIPTION, EntityGroup::STATUS_WAITING_FOR_MANUAL_PROCESS]
+                )
+            ) {
                 Log::info("OCR => entityGroup:#{$this->entityGroup->id} is not in OCR state");
                 return;
             }
@@ -86,8 +91,8 @@ class SubmitFileToOcrJob implements ShouldQueue
             $downloadedFile = $aiService->downloadSearchableFile($linkSearchablePdf);
             $location = strval(pathinfo($this->entityGroup->file_location, PATHINFO_DIRNAME));
             $OCRLocation = $location . '/Transcripted-' . strval(
-                    pathinfo($this->entityGroup->file_location, PATHINFO_FILENAME)
-                ) . '.pdf';
+                pathinfo($this->entityGroup->file_location, PATHINFO_FILENAME)
+            ) . '.pdf';
             if (Storage::disk('pdf')->put($OCRLocation, $downloadedFile) === false) {
                 throw new Exception('Failed to write data in to storage.');
             }

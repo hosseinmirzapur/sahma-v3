@@ -687,6 +687,9 @@ class FileController extends Controller
                     'message' => 'فرمت فایل در حال بررسی پشتیبانی نمیشود'
                 ]);
         }
+        $entityGroup->update([
+            'status' => EntityGroup::STATUS_WAITING_FOR_MANUAL_PROCESS,
+        ]);
 
         return redirect()->route('web.user.dashboard.index');
     }

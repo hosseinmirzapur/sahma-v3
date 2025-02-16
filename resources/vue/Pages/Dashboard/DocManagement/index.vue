@@ -19,7 +19,7 @@
           v-for="(doc, i) in searchFolder"
           :key="i"
           class="relative flex items-center cursor-pointer border border-transparent
-                 hover:border hover:shadow-cardUni rounded rounded-xl px-2 py-1 cursor-pointer"
+                 hover:border hover:shadow-cardUni rounded-xl px-2 py-1"
           :class="{'!border-primary/20 ': isDropDowns[doc.id], 'shadow-cardUni': isSelectItemFolder === doc.id , '!border-primary/20' : form.folders.includes(doc?.id) }"
           @contextmenu.prevent="openDropDown(doc?.id,'folder')"
           @dblclick="subOpenFolder('open' ,'web.user.dashboard.folder.show',doc)">
@@ -72,7 +72,7 @@
           v-for="(doc, i) in searchFiles"
           :key="i"
           class="relative flex items-center cursor-pointer border border-transparent
-                 hover:border hover:shadow-cardUni rounded rounded-xl px-2 py-1 cursor-pointer"
+                 hover:border hover:shadow-cardUni rounded-xl px-2 py-1"
           :class="{'!border-primary/20 ': isDropDownsFiles[doc.id],
                    'shadow-cardUni': isSelectItemFolder === doc.id ,
                    '!border-primary/20' : form.files.includes(doc?.id) }"
@@ -91,6 +91,9 @@
             class="relative flex items-center gap-x-4 cursor-pointer"
             :for="'checkbox-' + doc?.id">
             <!-- status icons-->
+            <ClockIcon
+              v-if="doc?.status === 'STATUS_WAITING_FOR_MANUAL_PROCESS'"
+              class="w-5 absolute -top-1 -right-2 shadow-lg text-blue-600 rounded-full animate-pulse" />
             <ClockIcon
               v-if="doc?.status === 'WAITING_FOR_TRANSCRIPTION' || doc?.status === 'WAITING_FOR_AUDIO_SEPARATION' || doc?.status === 'WAITING_FOR_SPLIT'"
               class="w-5 absolute -top-1 -right-2 shadow-lg text-orange-500 rounded-full" />
@@ -1238,6 +1241,10 @@ function closeDropdown () {
 }
 
 function subOpenFiles (slug, routeItem, doc) {
+  if (doc?.status === 'STATUS_WAITING_FOR_MANUAL_PROCESS') {
+    setAlerts(true, 'info', 'فایل در حال پردازش است، لطفا منتظر بمانید...')
+    return
+  }
   if (slug === 'open') {
     Inertia.visit(route(routeItem, { fileId: doc?.slug }), {
       method: 'get',
