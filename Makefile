@@ -27,6 +27,9 @@ ready:
 	@echo "Installing npm dependencies..."
 	@npm i
 
+	@echo "Building frontend assets..."
+	@npm run build
+
 	@echo "Optimization..."
 	@php artisan optimize
 
