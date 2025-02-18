@@ -52,3 +52,7 @@ start:
 	@sudo supervisorctl start sahma-habibi-renderer sahma-habibi-web sahma-habibi-worker
 
 .PHONY: analyse test sniff fix front lint-front ready converter update stop start
+
+Database name: default
+
+base-user:mwxkyijq9y8ebng%23z4cxt0y-@45e8917db84e4cd09a7e71142dbcc89d.db.arvandbaas.ir

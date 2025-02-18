@@ -40,6 +40,6 @@ class RouteServiceProvider extends ServiceProvider
     public function getUserDomain(): string
     {
         /** @phpstan-ignore-next-line */
-        return parse_url(config('app.url'))['host'];
+        return parse_url(config('app.url'))['host'] ?? '';
     }
 }
