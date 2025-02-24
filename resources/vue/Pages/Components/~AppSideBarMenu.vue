@@ -25,11 +25,11 @@
             <component
                 :is="item.icon"
                 :class="{'!bg-primary !text-white' : $page.url.includes(item.slug)|| $page.url.includes(item?.slug2) || $page.url.includes(item?.slug3)}"
-                class="w-14 p-2 rounded-md shadow-cardUni pointer-events-none hover:shadow-btnUni relative"/>
+                class="w-14 p-2 rounded-md shadow-xl pointer-events-none hover:shadow-3xl relative transition-all"/>
             <transition name="tooltip">
               <div
                   v-if="isTooltip[i]"
-                  class="absolute bottom-0 right-16 z-10 px-5 py-2 text-sm font-medium text-primary transition-opacity duration-300 bg-white rounded-md tooltip">
+                  class="absolute bottom-0 right-16 z-10 px-5 py-2 text-sm font-medium text-black transition-opacity duration-300 bg-gray-100 rounded-md tooltip">
                 {{ item?.name }}
               </div>
             </transition>
@@ -84,7 +84,7 @@
 </template>
 
 <script setup>
-import {FolderIcon, UserIcon, ArrowTrendingUpIcon, Squares2X2Icon, BriefcaseIcon} from '@heroicons/vue/24/outline'
+import {FolderIcon, UserIcon, ArrowTrendingUpIcon, BriefcaseIcon, BellIcon} from '@heroicons/vue/24/outline'
 import {Link} from '@inertiajs/inertia-vue3'
 import {ref} from 'vue'
 // eslint-disable-next-line no-undef
@@ -107,8 +107,8 @@ let options = [
   },
   {
     slug: '/notification',
-    icon: Squares2X2Icon,
-    name: 'داشبورد',
+    icon: BellIcon,
+    name: 'اعلانات',
     route: 'web.user.notification.index'
   },
   {
