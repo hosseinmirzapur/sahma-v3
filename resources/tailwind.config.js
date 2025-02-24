@@ -26,10 +26,11 @@ module.exports = {
       },
       colors: {
         pagination: '#EFEFEF',
-        primary: '#2A3875',
+        // primary: '#2A3875',
+        primary: '#ab8146',
         primaryDark: '#1E2855',
         dark: '#00168B',
-        secondPrimary: '#6f9efb',
+        secondPrimary: '#3835cc',
         primaryText: '#27272A',
         voice: '#153169',
         pdf: '#C3A63B',

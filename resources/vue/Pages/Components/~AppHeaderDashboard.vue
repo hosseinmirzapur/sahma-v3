@@ -1,5 +1,5 @@
 <template>
-  <header class="relative right-0 left-0 pt-5 bottom-auto w-full bg-white">
+  <header class="relative right-0 left-0 pt-5 bottom-auto w-full bg-transparent">
     <div class="w-full flex justify-between items-center md:h-20 h-16 p-5 rounded-xl shadow-cardUni bg-primary">
       <!-- logout -->
       <span

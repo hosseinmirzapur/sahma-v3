@@ -1,66 +1,31 @@
 <template>
-  <div class="min-h-app flex">
-    <div class="m-auto flex">
-      <div class="flex flex-col items-center">
-        <!-- logo irapardaz -->
-        <!--    fixed bottom-48 left-96    -->
-        <svg
-          class="w-32 "
-          width="100"
-          height="147"
-          viewBox="0 0 100 147"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg">
-          <g opacity="0.7">
-            <path
-              d="M46.8543 46.9289C51.1235 42.4357 46.6563 31.8448 29.2208 3.49618C27.9353 3.15106 27.6299 3.51082 27.7359 4.99386C44.8328 40.8075 38.1294 44.458 3.7914 28.3951C2.29426 28.1059 1.92969 28.3913 2.30648 29.8928C23.9571 42.4067 39.8009 52.5451 46.8543 46.9289Z"
-              fill="#353DBC" />
-            <path
-              d="M53.23 47.7178C57.685 52.0236 68.1857 47.5181 96.2929 29.9329C96.6351 28.6363 96.2784 28.3283 94.808 28.4352C59.2993 45.6789 55.6799 38.918 71.606 4.28508C71.8928 2.77507 71.6097 2.40737 70.1211 2.78739C57.7137 24.6239 47.6617 40.6038 53.23 47.7178Z"
-              fill="#EE412A" />
-            <path
-              d="M52.4699 53.3562C48.2008 57.8494 52.6679 68.4403 70.1034 96.789C71.3889 97.1341 71.6943 96.7743 71.5884 95.2913C54.4914 59.4777 61.1948 55.8272 95.5328 71.89C97.03 72.1792 97.3945 71.8938 97.0177 70.3924C75.3672 57.8784 59.5233 47.7401 52.4699 53.3562Z"
-              fill="#353DBC" />
-            <path
-              d="M46.579 52.5673C42.1241 48.2615 31.6234 52.7671 3.51614 70.3523C3.17396 71.6488 3.53066 71.9568 5.00107 71.85C40.5097 54.6062 44.1291 61.3672 28.2031 96.0001C27.9163 97.5101 28.1993 97.8778 29.688 97.4978C42.0954 75.6612 52.1474 59.6813 46.579 52.5673Z"
-              fill="#353DBC" />
-            <rect
-              x="1.61157"
-              y="109.191"
-              width="3.90659"
-              height="3.90659"
-              fill="#353DBC" />
-            <rect
-              x="44.9758"
-              y="140.445"
-              width="3.90659"
-              height="3.90659"
-              fill="#353DBC" />
-            <path
-              d="M97.7126 109.191V130.873M91.2668 116.223C91.2668 127.552 90.8761 130.141 80.133 130.141C69.3898 130.141 68.9992 125.404 68.9992 116.223V138.491M77.0077 137.124H88.1415M62.1626 109.191V130.873M15.6742 116.809C23.6827 116.809 27.394 117.2 27.394 123.45C27.2963 129.701 23.292 130.092 15.6742 130.092M10.0096 109.191V130.873M3.36841 116.223V138.686M40.8717 137.124H52.0055M56.1074 116.223C56.1074 127.552 55.7168 130.141 44.9736 130.141C34.2305 130.141 33.8398 125.404 33.8398 116.223V138.491"
-              stroke="#353DBC"
-              stroke-width="3.85082"
-              stroke-linejoin="round" />
-          </g>
-        </svg>
+  <div class="min-h-app flex needs-background">
+    <div class="m-auto flex gap-20">
+      <img src="/images/right-botojeghe.png" alt="" class="h-[600px] my-auto">
+      <div class="flex flex-col items-center justify-center">
+        <a href="https://habibifoundation.ir">
+          <img
+              src="/images/habibi.png"
+              class="w-24"
+              draggable="false"
+              alt="Habibi Foundation Image"
+          />
+        </a>
 
-        <h2 class="text-center text-2xl text-primary">
-          سامانه هوشمند مدیریت اسناد
-          <span class="text-center text-primary">( SAHMA )</span>
+        <h2 class="text-center text-2xl text-black flex flex-col gap-10">
+          <span class="text-center text-black text-4xl">بنیاد فرهنگی امیرکبیر</span>
+          <span class="text-center text-xl">
+            سامانه هوشمند کتابخانه و مرکز اسناد اهدایی زنده یاد دکتر حبیبی
+          </span>
         </h2>
 
-        <div class="w-[31.125rem] m-auto rounded-2xl md:border md:border-gray-200 py-10 px-12">
+        <div class="w-[31.125rem] m-auto rounded-2xl px-12 py-10">
           <main v-bind="$attrs">
-            <slot />
+            <slot/>
           </main>
         </div>
-
-        <!--logo uni-->
-        <img
-          class="mx-auto w-32 fixed top-48 right-96 hidden"
-          src="/images/uni-logo.png"
-          alt="logo uni">
       </div>
+      <img src="/images/left-botojeghe.png" alt="" class="h-[600px] my-auto">
     </div>
   </div>
 </template>
@@ -71,3 +36,29 @@ defineOptions({
   name: '~AppLayoutAuth'
 })
 </script>
+
+<style lang="scss" scoped>
+.needs-background {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url('/images/auth-bg.png');
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
+    filter: blur(5px);
+    opacity: 0.4; // Adjust opacity for faded effect
+    z-index: -1;
+  }
+}
+</style>

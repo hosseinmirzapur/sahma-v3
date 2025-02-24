@@ -1,5 +1,5 @@
 <template>
-  <div class="">
+  <div>
     <p
       v-for="(err, index) in v$.$errors"
       :key="index"

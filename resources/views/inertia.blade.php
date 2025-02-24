@@ -5,7 +5,7 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
-    <title>سامانه هوشمند مدیریت اسناد</title>
+    <title>{{ env('APP_TITLE', 'سامانه هوشمند مدیریت اسناد') }}</title>
 
     @routes('user')
     @vite('resources/vue/app.js')
@@ -15,7 +15,7 @@
     <meta name="description" content="سامانه هوشمند مدیریت اسناد">
     <meta name="keywords" content="سامانه هوشمند مدیریت اسناد">
 </head>
-<body dir="rtl">
+<body dir="rtl" class="bg-gray-30">
 @inertia
 </body>
 </html>
