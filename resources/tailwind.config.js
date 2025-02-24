@@ -30,7 +30,7 @@ module.exports = {
         primary: '#ab8146',
         primaryDark: '#1E2855',
         dark: '#00168B',
-        secondPrimary: '#3835cc',
+        secondPrimary: '#1E2855',
         primaryText: '#27272A',
         voice: '#153169',
         pdf: '#C3A63B',

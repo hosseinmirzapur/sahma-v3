@@ -1,9 +1,9 @@
 <template>
   <aside class="w-1/6 relative right-0 my-5">
     <div
-      class="flex h-[calc(100vh-140px)] p-5 flex-col items-start px-4 rounded-xl
+        class="flex h-[calc(100vh-140px)] p-5 flex-col items-center px-4 rounded-xl
              shadow-cardUni bg-primary overflow-auto">
-      <slot />
+      <slot/>
     </div>
   </aside>
 </template>
