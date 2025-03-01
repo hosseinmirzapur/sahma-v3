@@ -49,7 +49,12 @@ class CreateSplitVoiceToEntitiesJob implements ShouldQueue
     public function handle(): void
     {
         try {
-            if ($this->entityGroup->status != EntityGroup::STATUS_WAITING_FOR_SPLIT) {
+            if (
+                !in_array($this->entityGroup->status, [
+                    EntityGroup::STATUS_WAITING_FOR_SPLIT,
+                    EntityGroup::STATUS_WAITING_FOR_MANUAL_PROCESS,
+                ])
+            ) {
                 Log::warning("entityGroup: #{$this->entityGroup->id} is not in split status");
                 return;
             }
