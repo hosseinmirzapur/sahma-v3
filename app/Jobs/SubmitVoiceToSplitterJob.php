@@ -50,7 +50,12 @@ class SubmitVoiceToSplitterJob implements ShouldQueue
     public function handle(AiService $aiService, OfficeService $officeService): void
     {
         try {
-            if ($this->entityGroup->status != EntityGroup::STATUS_WAITING_FOR_SPLIT) {
+            if (
+                !in_array($this->entityGroup->status, [
+                EntityGroup::STATUS_WAITING_FOR_SPLIT,
+                EntityGroup::STATUS_WAITING_FOR_MANUAL_PROCESS,
+                ])
+            ) {
                 Log::warning("STT => questionAnswerGroup: #{$this->entityGroup->id} is not ready for get windows");
                 return;
             }

@@ -49,7 +49,12 @@ class ExtractVoiceFromVideoJob implements ShouldQueue
     public function handle(): void
     {
         try {
-            if ($this->entityGroup->status != EntityGroup::STATUS_WAITING_FOR_AUDIO_SEPARATION) {
+            if (
+                !in_array($this->entityGroup->status, [
+                    EntityGroup::STATUS_WAITING_FOR_AUDIO_SEPARATION,
+                    EntityGroup::STATUS_WAITING_FOR_MANUAL_PROCESS
+                ])
+            ) {
                 Log::info("VTT => entityGroup:#{$this->entityGroup->id} is not in separate state");
                 return;
             }
