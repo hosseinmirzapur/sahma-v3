@@ -51,6 +51,7 @@
     "vue-loader": "^17.2.2",
     "vue3-pdf-app": "^1.0.3",
     "vue3-persian-datetime-picker": "^1.2.2",
-    "vue3-tags-input": "^1.0.12"
+    "vue3-tags-input": "^1.0.12",
+    "xlsx": "^0.18.5"
   }
 }

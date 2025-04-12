@@ -105,10 +105,86 @@ class FileService
         if (ConfigHelper::isAiServiceManual()) {
             return;
         }
-        SubmitFileToOcrJob::dispatch($entityGroup, $entityGroup->user);
     }
 
     /**
+     * @throws Exception
+     */
+    public function storeSpreadsheet(
+        User $user,
+        UploadedFile $spreadsheet,
+        array $departments,
+        int|null $parentFolderId = null
+    ): void {
+        $spreadsheetOriginalFileName = $spreadsheet->getClientOriginalName();
+        $extension = $spreadsheet->getClientOriginalExtension(); // Use client extension
+
+        $nowDate = now()->toDateString();
+        $now = now()->timestamp;
+        $hash = hash('sha3-256', $spreadsheet->getContent()); // Hash content for uniqueness
+        $fileName = "$hash-$now.$extension";
+        $filePath = "/$nowDate";
+
+        // Store the uploaded spreadsheet file using the 'excel' disk
+        $fileLocation = $spreadsheet->storeAs(
+            $filePath,
+            $fileName,
+            ['disk' => 'excel'] // Use the 'excel' disk
+        );
+
+        if ($fileLocation === false) {
+            throw new Exception('Failed to store Spreadsheet file in storage.');
+        }
+
+        Log::info("SPREADSHEET => Stored spreadsheet file to disk 'excel' for user: #$user->id.");
+
+        // Save file metadata and assign to departments
+        /* @var EntityGroup $entityGroup */
+        $entityGroup = DB::transaction(function () use (
+            $fileLocation,
+            $parentFolderId,
+            $user,
+            $departments,
+            $spreadsheetOriginalFileName
+        ) {
+            $entityGroup = EntityGroup::createWithSlug([
+                'user_id' => $user->id,
+                'parent_folder_id' => $parentFolderId,
+                'name' => $spreadsheetOriginalFileName,
+                'type' => 'spreadsheet', // New type for Excel files
+                'file_location' => $fileLocation,
+                'status' => EntityGroup::STATUS_MANUAL_PROCESS_DONE, // Mark as completed, no AI processing needed
+                'meta' => [], // No specific meta needed for now
+                'result_location' => null // No result location needed
+            ]);
+
+            // Insert department relationships
+            $departmentFileData = collect($departments)->map(fn($departmentId) => [
+                'entity_group_id' => $entityGroup->id,
+                'department_id' => $departmentId,
+            ])->toArray();
+
+            DepartmentFile::query()->insert($departmentFileData);
+
+            // Log activity
+            $description = " کاربر $user->name";
+            $description .= " با کد پرسنلی $user->personal_id";
+            $description .= 'فایل اکسل ' . $entityGroup->name . ' '; // Adjusted description
+            $description .= "بارگزاری کرد.";
+            $this->activityService->logUserAction($user, Activity::TYPE_UPLOAD, $entityGroup, $description);
+
+
+            return $entityGroup;
+        }, 3);
+
+        Log::info("EntityGroup (Spreadsheet) created for user #$user->id with ID: " . $entityGroup->id);
+
+        // No AI jobs dispatched for spreadsheets
+    }
+
+
+    /**
+     * @throws ValidationException
      * @throws Exception
      */
     public function storeVoice(
@@ -515,17 +591,19 @@ class FileService
      */
     public function handleUploadedFile(Request $request, int $folderId = null): void
     {
-        $mimeTypes = [];
-        foreach ((array)config('mime-type') as $mime) {
-            $mimeTypes = array_merge($mimeTypes, array_keys((array)$mime));
+        $allMimeTypes = [];
+        foreach ((array)config('mime-type') as $category => $mimes) {
+            $allMimeTypes = array_merge($allMimeTypes, array_keys((array)$mimes));
         }
+        $validationMimes = implode(',', $allMimeTypes);
+
 
         /** @var UploadedFile $file */
         $file = $request->file('file');
         $departments = (array)$request->input('tags');
-        $extension = $file->extension();
+        $extension = strtolower($file->getClientOriginalExtension()); // Use client extension for reliable check
         $request->validate([
-            'file' => 'required|file|mimes:' . implode(',', $mimeTypes) . '|max:307200',
+            'file' => 'required|file|mimes:' . $validationMimes . '|max:307200', // Use updated mime list
             'tags' => 'required|array|min:1',
             'tags.*' => 'string',
         ]);
@@ -545,7 +623,12 @@ class FileService
         } elseif (in_array($extension, array_keys((array)config('mime-type.video')))) {
             $this->storeVideo($user, $file, $departments, $folderId);
         } elseif (in_array($extension, array_keys((array)config('mime-type.office')))) {
-            $this->storeWord($user, $file, $departments, $folderId);
+            // Check if it's an Excel file specifically
+            if (in_array($extension, ['xlsx', 'xls'])) {
+                $this->storeSpreadsheet($user, $file, $departments, $folderId);
+            } else { // Otherwise, it's a Word file
+                $this->storeWord($user, $file, $departments, $folderId);
+            }
         } else {
             throw ValidationException::withMessages(['message' => 'فایل مورد نظر پشتیبانی نمیشود.']);
         }

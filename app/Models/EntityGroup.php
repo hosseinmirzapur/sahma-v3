@@ -204,7 +204,11 @@ class EntityGroup extends Model
                 if ($this->type == 'word') {
                     $disk = 'pdf';
                     $fileLocation = $this->result_location['converted_word_to_pdf'] ?? '';
-                } else {
+                } else if ($this->type === 'spreadsheet') {
+                  $disk = 'excel';
+                  $fileLocation = $this->file_location;
+                }
+                 else {
                     $disk = $this->type;
                     $fileLocation = $this->file_location;
                 }
@@ -256,10 +260,11 @@ class EntityGroup extends Model
             'image' => 'image',
             'pdf', 'word' => 'pdf',
             'video' => 'video',
+            'spreadsheet' => 'excel',
             default => throw new Exception('file type does not exists.!')
         };
 
-        if (!$isBase64 && in_array($this->type, ['voice', 'image', 'pdf', 'video', 'word'])) {
+        if (!$isBase64 && in_array($this->type, ['voice', 'image', 'pdf', 'video', 'word', 'spreadsheet'])) {
             return $this->getFileData() ?? '';
         }
 
@@ -274,6 +279,8 @@ class EntityGroup extends Model
             return "data:video/$fileFormat;base64," . base64_encode($this->getFileData() ?? '');
         } elseif ($this->type == 'word') {
             return "data:application/pdf;base64," . base64_encode($this->getFileData() ?? '');
+        } elseif ($this->type == 'spreadsheet') {
+            return null; // Spreadsheets are not embeddable
         } else {
             return null;
         }
@@ -309,6 +316,10 @@ class EntityGroup extends Model
     {
         if ($this->file_location == null) {
             return false;
+        }
+
+        if ($this->type === 'spreadsheet') {
+          return Storage::disk('excel')->exists($this->file_location);
         }
 
         return Storage::disk($this->type)->exists($this->file_location);
