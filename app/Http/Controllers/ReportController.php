@@ -11,53 +11,55 @@ use Exception;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Inertia\Response;
 use Inertia\ResponseFactory;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use Throwable;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportController extends Controller
 {
-    public function totalUploadedFiles(): Response|ResponseFactory
+    public function totalUploadedFiles(Request $request): Response|ResponseFactory
     {
-        $now = now();
-        $startDate = $now->subDays(15)->startOfDay();
-        $endDate = $now->endOfDay();
-
-        // Retrieve grouped count of files uploaded per day
         $historyTotalFilesInDate = EntityGroup::query()
-            ->selectRaw('DATE(created_at) as date, COUNT(*) as total')
-            ->whereBetween('created_at', [$startDate, $endDate])
-            ->groupByRaw('DATE(created_at)')
-            ->pluck('total', 'date');
+            ->select([DB::raw('DATE(created_at) as date'), DB::raw('count(*) as total')])
+            ->where('created_at', '>', now()->subDays(15))
+            ->where('created_at', '<', now())
+            ->groupBy(DB::raw('DATE(created_at)'))
+            ->get()
+            ->mapWithKeys(function ($item) {
+                return [$item['date'] => $item['total']];
+            });
+        $period = CarbonPeriod::create(now()->subDays(15), now());
+        $historyTotalFilesIn = [];
+        foreach ($period as $date) {
+            if (is_null($date)) {
+                continue;
+            }
+            if (isset($historyTotalFilesInDate[$date->format('Y-m-d')])) {
+                $historyTotalFilesIn[intval($date->timestamp)] =
+                    $historyTotalFilesInDate[$date->format('Y-m-d')];
+            } else {
+                $historyTotalFilesIn[intval($date->timestamp)] = 0;
+            }
+        }
 
-        // Generate a full date range with default values of 0
-        $historyTotalFilesIn = collect(CarbonPeriod::create($startDate, $now))
-            ->mapWithKeys(fn($date) => [
-                intval($date->timestamp) => $historyTotalFilesInDate->get($date->format('Y-m-d'), 0)
-            ])
-            ->all();
-
-        // Filter activities only once
         $activities = EntityGroup::query()->whereNotIn('type', ['excel', 'zip']);
 
-        $lastWeekCountFiles = (clone $activities)
-            ->whereBetween('created_at', [
-                $now->subWeek()->startOfDay(), $now->endOfDay()
-            ])
+        $lastWeekCountFiles = $activities
+            ->whereBetween('created_at', [now()->subWeek()->startOfDay(), now()->endOfDay()])
             ->count();
-        $lastMonthCountFiles = (clone $activities)
-            ->whereBetween('created_at', [
-                $now->subMonth()->startOfDay(), $now->endOfDay()
-            ])
+
+        $lastMonthCountFiles = $activities
+            ->whereBetween('created_at', [now()->subMonth()->startOfDay(), now()->endOfDay()])
             ->count();
-        $totalTodayFiles = (clone $activities)
-            ->whereBetween('created_at', [
-                $now->startOfDay(), $now->endOfDay()
-            ])
+
+        $totalTodayFiles = $activities
+            ->whereBetween('created_at', [now()->startOfDay(), now()->endOfDay()])
             ->count();
 
         return inertia('Dashboard/Reports/Report', [
@@ -68,11 +70,9 @@ class ReportController extends Controller
         ]);
     }
 
-
-    public function totalUploadedFileByType(): Response|ResponseFactory
+    public function totalUploadedFileByType(Request $request): Response|ResponseFactory
     {
-        $totalUploadedFileGroupByType = EntityGroup::query()
-            ->select('type', DB::raw('count(*) as count'))
+        $totalUploadedFileGroupByType = EntityGroup::query()->select('type', DB::raw('count(*) as count'))
             ->whereNotIn('type', ['zip', 'excel'])
             ->groupBy('type')
             ->get();
@@ -82,12 +82,11 @@ class ReportController extends Controller
         ]);
     }
 
-    public function totalTranscribedFiles(): Response|ResponseFactory
+    public function totalTranscribedFiles(Request $request): Response|ResponseFactory
     {
-        $totalUploadedFileByTranscriptionStatus = EntityGroup::query()->selectRaw(
+        $totalUploadedFileByTranscriptionStatus = EntityGroup::selectRaw(
             'CASE WHEN status = "TRANSCRIBED" THEN "TRANSCRIBED" ELSE "Other Statuses" END AS status_group'
-        )
-            ->selectRaw('COUNT(*) as count')
+        )->selectRaw('COUNT(*) as count')
             ->whereNotIn('type', ['zip', 'excel']) // Exclude rows with 'type' equal to 'zip'
             ->groupBy('status_group')
             ->get();
@@ -100,7 +99,7 @@ class ReportController extends Controller
     /**
      * @throws ValidationException
      */
-    public function usersActivity(Request $request): Response|ResponseFactory
+    public function usersActivity(Request $request, User $user): Response|ResponseFactory
     {
         /* @var User $user */
         $user = $request->user();
@@ -208,8 +207,7 @@ class ReportController extends Controller
         // Group activities by user ID and initialize user data
         foreach ($activities->forPeriod($start, $end)->get() as $activity) {
             $userId = $activity->user_id;
-            $date = $activity->created_at->toDateString();
-            /** @phpstan-ignore-line */
+            $date = $activity->created_at->toDateString();/** @phpstan-ignore-line */
 
             if (!isset($report[$date][$userId])) {
                 $report[$date][$userId] = [
@@ -249,7 +247,7 @@ class ReportController extends Controller
     }
 
     /**
-     * @throws Throwable
+     * @throws \Throwable
      * @throws \PhpOffice\PhpSpreadsheet\Writer\Exception
      */
     public function createExcelUserReport(Request $request): RedirectResponse
@@ -281,8 +279,7 @@ class ReportController extends Controller
         // Group activities by user ID and initialize user data
         foreach ($activities->forPeriod($start, $end)->get() as $activity) {
             $userId = $activity->user_id;
-            $date = $activity->created_at->toDateString();
-            /** @phpstan-ignore-line */
+            $date = $activity->created_at->toDateString();/** @phpstan-ignore-line */
 
             if (!isset($report[$date][$userId])) {
                 $report[$date][$userId] = [
@@ -326,8 +323,7 @@ class ReportController extends Controller
         foreach ($report as $date) {
             foreach ($date as $userId => $data) {
                 $departmentNames = array_map(function ($department) {
-                    return $department['name'] ?? '';
-                    /** @phpstan-ignore-line */
+                    return $department['name'] ?? ''; /** @phpstan-ignore-line */
                 }, $data['departments'] ?? []);
                 $sheet->setCellValue("A$row", $data['name'] ?? '');
                 $sheet->setCellValue("B$row", $data['personalId'] ?? '');
