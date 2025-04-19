@@ -182,6 +182,156 @@ class FileService
         // No AI jobs dispatched for spreadsheets
     }
 
+    /**
+     * @throws Exception
+     */
+    public function storePowerpoint(
+        User $user,
+        UploadedFile $powerpoint,
+        array $departments,
+        int|null $parentFolderId = null
+    ): void {
+        $powerpointOriginalFileName = $powerpoint->getClientOriginalName();
+        $extension = $powerpoint->getClientOriginalExtension(); // Use client extension
+
+        $nowDate = now()->toDateString();
+        $now = now()->timestamp;
+        $hash = hash('sha3-256', $powerpoint->getContent()); // Hash content for uniqueness
+        $fileName = "$hash-$now.$extension";
+        $filePath = "/$nowDate";
+
+        // Store the uploaded powerpoint file using the 'powerpoint' disk
+        $fileLocation = $powerpoint->storeAs(
+            $filePath,
+            $fileName,
+            ['disk' => 'powerpoint'] // Use the 'powerpoint' disk
+        );
+
+        if ($fileLocation === false) {
+            throw new Exception('Failed to store PowerPoint file in storage.');
+        }
+
+        Log::info("POWERPOINT => Stored powerpoint file to disk 'powerpoint' for user: #$user->id.");
+
+        // Save file metadata and assign to departments
+        /* @var EntityGroup $entityGroup */
+        $entityGroup = DB::transaction(function () use (
+            $fileLocation,
+            $parentFolderId,
+            $user,
+            $departments,
+            $powerpointOriginalFileName
+        ) {
+            $entityGroup = EntityGroup::createWithSlug([
+                'user_id' => $user->id,
+                'parent_folder_id' => $parentFolderId,
+                'name' => $powerpointOriginalFileName,
+                'type' => 'powerpoint', // New type for PowerPoint files
+                'file_location' => $fileLocation,
+                'status' => EntityGroup::STATUS_MANUAL_PROCESS_DONE, // Mark as completed, no AI processing needed
+                'meta' => [], // No specific meta needed for now
+                'result_location' => null // No result location needed
+            ]);
+
+            // Insert department relationships
+            $departmentFileData = collect($departments)->map(fn($departmentId) => [
+                'entity_group_id' => $entityGroup->id,
+                'department_id' => $departmentId,
+            ])->toArray();
+
+            DepartmentFile::query()->insert($departmentFileData);
+
+            // Log activity
+            $description = " کاربر $user->name";
+            $description .= " با کد پرسنلی $user->personal_id";
+            $description .= 'فایل پاورپوینت ' . $entityGroup->name . ' '; // Adjusted description
+            $description .= "بارگزاری کرد.";
+            $this->activityService->logUserAction($user, Activity::TYPE_UPLOAD, $entityGroup, $description);
+
+
+            return $entityGroup;
+        }, 3);
+
+        Log::info("EntityGroup (PowerPoint) created for user #$user->id with ID: " . $entityGroup->id);
+
+        // No AI jobs dispatched for powerpoints
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function storeArchive(
+        User $user,
+        UploadedFile $archive,
+        array $departments,
+        int|null $parentFolderId = null
+    ): void {
+        $archiveOriginalFileName = $archive->getClientOriginalName();
+        $extension = $archive->getClientOriginalExtension(); // Use client extension
+
+        $nowDate = now()->toDateString();
+        $now = now()->timestamp;
+        $hash = hash('sha3-256', $archive->getContent()); // Hash content for uniqueness
+        $fileName = "$hash-$now.$extension";
+        $filePath = "/$nowDate";
+
+        // Store the uploaded archive file using the 'archive' disk
+        $fileLocation = $archive->storeAs(
+            $filePath,
+            $fileName,
+            ['disk' => 'archive'] // Use the 'archive' disk
+        );
+
+        if ($fileLocation === false) {
+            throw new Exception('Failed to store Archive file in storage.');
+        }
+
+        Log::info("ARCHIVE => Stored archive file to disk 'archive' for user: #$user->id.");
+
+        // Save file metadata and assign to departments
+        /* @var EntityGroup $entityGroup */
+        $entityGroup = DB::transaction(function () use (
+            $fileLocation,
+            $parentFolderId,
+            $user,
+            $departments,
+            $archiveOriginalFileName
+        ) {
+            $entityGroup = EntityGroup::createWithSlug([
+                'user_id' => $user->id,
+                'parent_folder_id' => $parentFolderId,
+                'name' => $archiveOriginalFileName,
+                'type' => 'archive', // New type for Archive files
+                'file_location' => $fileLocation,
+                'status' => EntityGroup::STATUS_MANUAL_PROCESS_DONE, // Mark as completed, no AI processing needed
+                'meta' => [], // No specific meta needed for now
+                'result_location' => null // No result location needed
+            ]);
+
+            // Insert department relationships
+            $departmentFileData = collect($departments)->map(fn($departmentId) => [
+                'entity_group_id' => $entityGroup->id,
+                'department_id' => $departmentId,
+            ])->toArray();
+
+            DepartmentFile::query()->insert($departmentFileData);
+
+            // Log activity
+            $description = " کاربر $user->name";
+            $description .= " با کد پرسنلی $user->personal_id";
+            $description .= 'فایل فشرده ' . $entityGroup->name . ' '; // Adjusted description
+            $description .= "بارگزاری کرد.";
+            $this->activityService->logUserAction($user, Activity::TYPE_UPLOAD, $entityGroup, $description);
+
+
+            return $entityGroup;
+        }, 3);
+
+        Log::info("EntityGroup (Archive) created for user #$user->id with ID: " . $entityGroup->id);
+
+        // No AI jobs dispatched for archives
+    }
+
 
     /**
      * @throws ValidationException
@@ -593,9 +743,9 @@ class FileService
     {
         $allMimeTypes = [];
         foreach ((array)config('mime-type') as $category => $mimes) {
-            $allMimeTypes = array_merge($allMimeTypes, array_keys((array)$mimes));
+            $allMimeTypes = array_merge($allMimeTypes, array_keys((array)$mimes)); // Revert to using extensions (keys)
         }
-        $validationMimes = implode(',', $allMimeTypes);
+        $validationMimes = implode(',', $allMimeTypes); // Use extensions for validation rule
 
 
         /** @var UploadedFile $file */
@@ -623,12 +773,16 @@ class FileService
         } elseif (in_array($extension, array_keys((array)config('mime-type.video')))) {
             $this->storeVideo($user, $file, $departments, $folderId);
         } elseif (in_array($extension, array_keys((array)config('mime-type.office')))) {
-            // Check if it's an Excel file specifically
+            // Check specific office types
             if (in_array($extension, ['xlsx', 'xls'])) {
                 $this->storeSpreadsheet($user, $file, $departments, $folderId);
-            } else { // Otherwise, it's a Word file
+            } elseif (in_array($extension, ['pptx', 'ppt'])) {
+                $this->storePowerpoint($user, $file, $departments, $folderId);
+            } else { // Assume Word for other office types (doc, docx)
                 $this->storeWord($user, $file, $departments, $folderId);
             }
+        } elseif (in_array($extension, array_keys((array)config('mime-type.archive')))) {
+            $this->storeArchive($user, $file, $departments, $folderId);
         } else {
             throw ValidationException::withMessages(['message' => 'فایل مورد نظر پشتیبانی نمیشود.']);
         }

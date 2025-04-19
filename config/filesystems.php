@@ -78,6 +78,18 @@ return [
       'throw' => false,
     ],
 
+    'powerpoint' => [
+        'driver' => 'local',
+        'root' => storage_path('app/powerpoint'),
+        'throw' => false,
+    ],
+
+    'archive' => [
+        'driver' => 'local',
+        'root' => storage_path('app/archive'),
+        'throw' => false,
+    ],
+
     'excel' => [
       'driver' => 'local',
       'root' => storage_path('app/excel'),

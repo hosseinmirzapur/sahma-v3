@@ -173,6 +173,10 @@ Route::middleware('auth:web')->group(function () {
 
                 Route::post('/manual-process/{fileId?}', [FileController::class, 'manualProcess'])
                     ->name('manual-process');
+
+                // Route to serve raw file content for external viewers
+                Route::get('/serve/{fileId?}', [FileController::class, 'serveRawFile'])
+                    ->name('serve.raw');
             });
 
             Route::post('/upload/{folderId?}', [FileController::class, 'upload'])->name('upload');

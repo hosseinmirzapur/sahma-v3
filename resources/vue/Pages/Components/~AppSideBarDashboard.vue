@@ -206,7 +206,7 @@
           </div>
 
           <button
-            class="flex-shrink-0 bg-primary hover:bg-primaryDark border-primary hover:border-primaryDark text-sm border-4 h-12 shadow-btnUni text-white py-1 px-2 rounded mt-5 rounded-xl cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            class="flex-shrink-0 bg-primary hover:bg-primaryDark border-primary hover:border-primaryDark text-sm border-4 h-12 shadow-btnUni text-white py-1 px-2 mt-5 rounded-xl cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             type="submit"
             :disabled="formFile.processing"
             v-text="`تایید`"
@@ -268,8 +268,8 @@ const { url } = usePage();
 
 const isDragover = ref(false);
 const format = reactive({
-  text: "فایل باید از نوع wav, mp3, aac, flac, wma, ogg, m4a, pdf, wma, mp4, jpeg, word, tif, xlsx, xls باشد.", // Added xlsx, xls
-  rex: /(\.wav|\.mp3|\.pdf|\.aac|\.flac|\.wma|\.jpg|\.ogg|\.mp4|\.jpeg|\.tif|\.docx|\.doc|\.xlsx|\.xls)$/i, // Added xlsx, xls
+  text: "فایل باید از نوع wav, mp3, aac, flac, wma, ogg, m4a, pdf, wma, mp4, jpeg, tiff, docx, doc, xlsx, xls, pptx, ppt, zip باشد.",
+  rex: /(\.wav|\.mp3|\.pdf|\.aac|\.flac|\.wma|\.jpg|\.ogg|\.mp4|\.jpeg|\.tif|\.docx|\.doc|\.xlsx|\.xls|\.pptx|\.ppt|\.zip)$/i,
 });
 const fileInput = ref(null);
 // set Alert

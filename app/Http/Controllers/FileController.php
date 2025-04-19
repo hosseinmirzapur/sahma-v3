@@ -29,6 +29,8 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Response;
 use Inertia\ResponseFactory;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Illuminate\Http\Response as IlluminateResponse;
+
 
 class FileController extends Controller
 {
@@ -91,6 +93,11 @@ class FileController extends Controller
             'word' => route("web.user.dashboard.file.download.word", $fileId),
         ];
 
+        // Disable download route for spreadsheets, powerpoints and archives
+        if (in_array($entityGroup->type, ['spreadsheet', 'powerpoint', 'archive'])) {
+            $downloadRoutes = null;
+        }
+
         // Construct file metadata
         $file = [
             'id' => $entityGroup->id,
@@ -106,9 +113,10 @@ class FileController extends Controller
                 : route('web.user.dashboard.index'),
         ];
 
-        return inertia('Dashboard/DocManagement/Services', [
+        // Prepare props for Inertia view
+        $props = [
             'file' => $file,
-            'fileContent' => $fileContent,
+            'fileContent' => $fileContent, // Initially set based on embedding generation
             'fileType' => $fileType,
             'activities' => ActivityService::getActivityByType($entityGroup),
             'voiceWindows' => $voiceWindows,
@@ -116,7 +124,76 @@ class FileController extends Controller
             'searchedInput' => $searchedInput,
             'downloadRoute' => $downloadRoutes,
             'printRoute' => route("web.user.dashboard.file.print.original", $fileId),
-        ]);
+            'externalViewerUrl' => null, // Initialize
+            'downloadRoute' => $downloadRoutes, // Pass the download routes
+        ];
+
+        // Generate external viewer URL for specific types and adjust props
+        if (in_array($entityGroup->type, ['spreadsheet', 'powerpoint', 'archive'])) {
+            // Generate the secure URL to serve the raw file
+            $rawFileUrl = route('web.user.dashboard.file.serve.raw', ['fileId' => $entityGroup->getEntityGroupId()]); // Pass fileId correctly
+            // Construct the Microsoft Office Online viewer URL
+            // You might want to make the viewer URL configurable (e.g., via .env or config file)
+            // Option 1: Microsoft Viewer
+            $props['externalViewerUrl'] = "https://view.officeapps.live.com/op/embed.aspx?src=" . urlencode($rawFileUrl);
+            // Option 2: Google Viewer (uncomment if preferred)
+            // $props['externalViewerUrl'] = "https://docs.google.com/gview?url=" . urlencode($rawFileUrl) . "&embedded=true";
+
+            // Ensure fileContent is null for types handled by external viewer
+            $props['fileContent'] = null; // Override fileContent for these types
+            $props['component'] = 'ExternalViewer'; // Suggest a different component or handling in frontend
+        }
+
+        // Return the Inertia response with the potentially modified props
+        return inertia('Dashboard/DocManagement/Services', $props);
+    }
+
+    /**
+     * Serves the raw file content for external viewers or direct access.
+     *
+     * @param Request $request
+     * @return StreamedResponse|IlluminateResponse
+     * @throws Exception
+     */
+    public function serveRawFile(Request $request): StreamedResponse|IlluminateResponse
+    {
+        /** @var EntityGroup $entityGroup */
+        $entityGroup = $request->attributes->get('entityGroup');
+
+        if (!$entityGroup->fileExists()) {
+            abort(404, 'File not found.');
+        }
+
+        $diskName = match ($entityGroup->type) {
+            'spreadsheet' => 'excel',
+            'powerpoint' => 'powerpoint',
+            'archive' => 'archive',
+            'word' => 'word', // Serve original word if needed, though viewer usually handles docx
+             // Add other types if they need direct serving capability
+            default => $entityGroup->type, // Fallback to type name as disk name
+        };
+
+        $storage = Storage::disk($diskName);
+        $path = $entityGroup->file_location;
+
+        if (!$storage->exists($path)) {
+             abort(404, "File not found on disk '{$diskName}'.");
+        }
+
+        $mimeType = $storage->mimeType($path) ?: 'application/octet-stream';
+        $stream = $storage->readStream($path);
+
+        $headers = ['Content-Type' => $mimeType];
+        if ($entityGroup->type === 'spreadsheet') {
+            $headers['Content-Disposition'] = 'inline; filename="' . $entityGroup->name . '"';
+        } else {
+            $headers['Content-Disposition'] = 'attachment; filename="' . $entityGroup->name . '"';
+        }
+
+        // Use StreamedResponse for potentially large files
+        return response()->stream(function () use ($stream) {
+            fpassthru($stream);
+        }, 200, $headers);
     }
 
 

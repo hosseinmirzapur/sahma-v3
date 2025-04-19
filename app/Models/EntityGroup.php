@@ -207,8 +207,13 @@ class EntityGroup extends Model
                 } else if ($this->type === 'spreadsheet') {
                   $disk = 'excel';
                   $fileLocation = $this->file_location;
-                }
-                 else {
+                } else if ($this->type === 'powerpoint') {
+                    $disk = 'powerpoint';
+                    $fileLocation = $this->file_location;
+                } else if ($this->type === 'archive') {
+                    $disk = 'archive';
+                    $fileLocation = $this->file_location;
+                } else {
                     $disk = $this->type;
                     $fileLocation = $this->file_location;
                 }
@@ -261,13 +266,17 @@ class EntityGroup extends Model
             'pdf', 'word' => 'pdf',
             'video' => 'video',
             'spreadsheet' => 'excel',
-            default => throw new Exception('file type does not exists.!')
+            'powerpoint' => 'powerpoint',
+            'archive' => 'archive',
+            default => throw new Exception('file type does not exist!')
         };
 
-        if (!$isBase64 && in_array($this->type, ['voice', 'image', 'pdf', 'video', 'word', 'spreadsheet'])) {
-            return $this->getFileData() ?? '';
+        // Return raw data if not base64 and type is directly servable (excluding office/archive types meant for external viewers)
+        if (!$isBase64 && in_array($this->type, ['voice', 'image', 'pdf', 'video'])) {
+             return $this->getFileData() ?? '';
         }
 
+        // Handle base64 encoding for embeddable types
         $fileFormat = pathinfo($this->file_location ?? '', PATHINFO_EXTENSION);
         if ($this->type == 'voice') {
             return 'data:audio/' . $fileFormat . ';base64,' . base64_encode($this->getFileData() ?? '');
@@ -277,12 +286,12 @@ class EntityGroup extends Model
             return 'data:application/pdf;base64,' . base64_encode($this->getFileData() ?? '');
         } elseif ($this->type == 'video') {
             return "data:video/$fileFormat;base64," . base64_encode($this->getFileData() ?? '');
-        } elseif ($this->type == 'word') {
+        } elseif ($this->type == 'word') { // Word is converted to PDF for embedding
             return "data:application/pdf;base64," . base64_encode($this->getFileData() ?? '');
-        } elseif ($this->type == 'spreadsheet') {
-            return null; // Spreadsheets are not embeddable
+        } elseif (in_array($this->type, ['spreadsheet', 'powerpoint', 'archive'])) {
+            return null; // These types are not directly embeddable, use external viewers
         } else {
-            return null;
+            return null; // Default case
         }
     }
 
@@ -320,8 +329,13 @@ class EntityGroup extends Model
 
         if ($this->type === 'spreadsheet') {
           return Storage::disk('excel')->exists($this->file_location);
+        } elseif ($this->type === 'powerpoint') {
+            return Storage::disk('powerpoint')->exists($this->file_location);
+        } elseif ($this->type === 'archive') {
+            return Storage::disk('archive')->exists($this->file_location);
         }
 
+        // Default check for other types
         return Storage::disk($this->type)->exists($this->file_location);
     }
 
@@ -341,12 +355,14 @@ class EntityGroup extends Model
             $fileContent = $this->getHtmlEmbeddableTranscribedFileData($isBase64);
         } else {
             $fileType = $this->type == 'image' ? 'image' : $this->type;
-            $fileContent = $this->getHtmlEmbeddableFileData($isBase64);
+            // For non-transcribed or non-embeddable types, get the original file data representation
+            $fileType = $this->type; // Use the actual type
+            $fileContent = $this->getHtmlEmbeddableFileData($isBase64); // Will be null for spreadsheet, powerpoint, archive
             $fileName = $this->name;
         }
 
         return [
-            'fileType' => $fileType,
+            'fileType' => $fileType, // e.g., 'pdf', 'voice', 'spreadsheet', 'powerpoint', 'archive'
             'fileContent' => $fileContent,
             'fileName' => $fileName
         ];
