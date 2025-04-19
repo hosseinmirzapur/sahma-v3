@@ -176,7 +176,11 @@ Route::middleware('auth:web')->group(function () {
 
                 // Route to serve raw file content for external viewers
                 Route::get('/serve/{fileId?}', [FileController::class, 'serveRawFile'])
-                    ->name('serve.raw');
+                    ->name('serve.raw')->withoutMiddleware([
+                      'auth:web',
+                      'convert.obfuscatedId-entityGroup',
+                      'check.permission.folder-and-file-management',
+                  ]);;
             });
 
             Route::post('/upload/{folderId?}', [FileController::class, 'upload'])->name('upload');
