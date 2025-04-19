@@ -171,7 +171,7 @@
               type="file"
               name="file"
               class="hidden"
-              accept=".wav,.mp3,.pdf,.aac,.flac,.wma,.jpg,.ogg,.mp4,.jpeg,.tif,.docx,.doc,.xlsx,.xls"
+              accept=".wav,.mp3,.pdf,.aac,.flac,.wma,.jpg,.ogg,.mp4,.jpeg,.tif,.docx,.doc,.xlsx,.xls,.ppt,.pptx,.zip"
               @change="drop"
             />
           </label>
@@ -295,7 +295,8 @@ const getErrorText = (error) => {
     case "tags":
       return "واحد سازمانی را وارد کنید";
     case "rex":
-      return "فایل باید از نوع wav, mp3, aac, flac, wma, ogg, m4a, pdf, wma, mp4, jpeg, tiff, xlsx, xls باشد."; // Added xlsx, xls
+      // CORRECTED MESSAGE
+      return "فایل باید از نوع wav, mp3, aac, flac, wma, ogg, m4a, pdf, wma, mp4, jpeg, tiff, docx, doc, xlsx, xls, pptx, ppt, zip باشد.";
     default:
       return error;
   }

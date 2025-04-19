@@ -736,33 +736,78 @@ class FileService
 
 
     /**
-     * @throws ValidationException
-     * @throws Exception
+     * Handles the uploaded file from the request, validates it, determines its type,
+     * and calls the appropriate specific storage method.
+     *
+     * @param Request $request The incoming request object.
+     * @param int|null $folderId The ID of the parent folder, or null for root upload.
+     * @return void
+     * @throws ValidationException If validation fails.
+     * @throws Exception If storing the file fails or an unexpected error occurs.
      */
     public function handleUploadedFile(Request $request, int $folderId = null): void
     {
-        $allMimeTypes = [];
-        foreach ((array)config('mime-type') as $category => $mimes) {
-            $allMimeTypes = array_merge($allMimeTypes, array_keys((array)$mimes)); // Revert to using extensions (keys)
-        }
-        $validationMimes = implode(',', $allMimeTypes); // Use extensions for validation rule
-
-
-        /** @var UploadedFile $file */
-        $file = $request->file('file');
-        $departments = (array)$request->input('tags');
-        $extension = strtolower($file->getClientOriginalExtension()); // Use client extension for reliable check
-        $request->validate([
-            'file' => 'required|file|mimes:' . $validationMimes . '|max:307200', // Use updated mime list
-            'tags' => 'required|array|min:1',
-            'tags.*' => 'string',
-        ]);
-
-        /* @var User $user */
+        // 1. Get Authenticated User
+        /** @var User|null $user */
         $user = $request->user();
         if ($user === null) {
+            Log::error("Attempted file upload without authenticated user.");
             abort(403, 'دسترسی لازم را ندارید.');
         }
+
+        // 2. Get File and Tags from Request
+        /** @var UploadedFile|null $file */
+        $file = $request->file('file');
+        $departments = (array)$request->input('tags');
+
+        // Pre-validation check for file presence and validity
+        if (!$file || !$file->isValid()) {
+            Log::warning("File object not present or invalid before validation. User: #{$user->id}");
+            throw ValidationException::withMessages(['file' => 'فایل معتبر یافت نشد یا در آپلود خطا رخ داده است.']);
+        }
+
+        // 3. Get File Extension (used for routing and validation)
+        $extension = strtolower($file->getClientOriginalExtension());
+
+        // 4. Prepare Validation Rules (using Extensions)
+        $allowedExtensions = [];
+        foreach ((array)config('mime-type') as $category => $mimes) {
+            $allowedExtensions = array_merge($allowedExtensions, array_keys((array)$mimes));
+        }
+        $validationExtensionsString = implode(',', array_unique($allowedExtensions));
+
+        // Log essential details before validation attempt
+        Log::debug(
+            "Attempting to validate file upload for User: #$user->id, File: {$file->getClientOriginalName()}, Ext: $extension, FolderID: "
+            . ($folderId ?? 'ROOT') . ", ValidationRule: extensions:$validationExtensionsString"
+        );
+
+        // 5. Perform Validation
+        try {
+            $request->validate([
+                'file' => [
+                    'required',
+                    'file',
+                    'extensions:' . $validationExtensionsString, // Validate based on allowed extensions
+                    'max:307200' // 300MB limit (307200 KB)
+                ],
+                'tags' => 'required|array|min:1',
+                'tags.*' => 'numeric|exists:departments,id', // Validate tags are numeric department IDs that exist
+            ]);
+            // Log validation success
+            Log::info("File validation passed for User: #{$user->id}, File: {$file->getClientOriginalName()}");
+
+        } catch (ValidationException $e) {
+            // Log validation failure with specific errors
+            Log::error(
+                "File upload validation failed for User: #{$user->id}, File: {$file->getClientOriginalName()}. Errors: "
+                . json_encode($e->errors())
+            );
+            throw $e; // Re-throw the exception
+        }
+
+        // 6. Determine File Type and Delegate Storage
+        Log::info("Routing file '{$file->getClientOriginalName()}' (Ext: {$extension}) to appropriate store method.");
 
         if (in_array($extension, array_keys((array)config('mime-type.book')))) {
             $this->storePdf($user, $file, $departments, $folderId);
@@ -773,19 +818,28 @@ class FileService
         } elseif (in_array($extension, array_keys((array)config('mime-type.video')))) {
             $this->storeVideo($user, $file, $departments, $folderId);
         } elseif (in_array($extension, array_keys((array)config('mime-type.office')))) {
-            // Check specific office types
+            // Delegate to specific office type handlers
             if (in_array($extension, ['xlsx', 'xls'])) {
                 $this->storeSpreadsheet($user, $file, $departments, $folderId);
             } elseif (in_array($extension, ['pptx', 'ppt'])) {
                 $this->storePowerpoint($user, $file, $departments, $folderId);
-            } else { // Assume Word for other office types (doc, docx)
+            } elseif (in_array($extension, ['docx', 'doc'])) {
                 $this->storeWord($user, $file, $departments, $folderId);
+            } else {
+                // Should not happen if config/validation is correct
+                Log::error("Unhandled office file extension '{$extension}' for User: #{$user->id}, File: {$file->getClientOriginalName()}");
+                throw ValidationException::withMessages(['file' => "فرمت فایل آفیس '{$extension}' پشتیبانی نمی‌شود."]);
             }
         } elseif (in_array($extension, array_keys((array)config('mime-type.archive')))) {
             $this->storeArchive($user, $file, $departments, $folderId);
         } else {
-            throw ValidationException::withMessages(['message' => 'فایل مورد نظر پشتیبانی نمیشود.']);
+            // This indicates a mismatch between validation and routing logic
+            Log::error("Unsupported file extension '{$extension}' made it past validation for User: #{$user->id}, File: {$file->getClientOriginalName()}. Check config and validation logic.");
+            throw ValidationException::withMessages(['file' => 'فایل مورد نظر پشتیبانی نمیشود.']);
         }
+
+        // Log overall success for this function's scope
+        Log::info("Successfully processed and initiated storage for file '{$file->getClientOriginalName()}' for User: #{$user->id}");
     }
 
     public static function getAudioInfo(string $path): array
