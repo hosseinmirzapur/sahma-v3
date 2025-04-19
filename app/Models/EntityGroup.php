@@ -205,8 +205,8 @@ class EntityGroup extends Model
                     $disk = 'pdf';
                     $fileLocation = $this->result_location['converted_word_to_pdf'] ?? '';
                 } else if ($this->type === 'spreadsheet') {
-                  $disk = 'excel';
-                  $fileLocation = $this->file_location;
+                    $disk = 'excel';
+                    $fileLocation = $this->file_location;
                 } else if ($this->type === 'powerpoint') {
                     $disk = 'powerpoint';
                     $fileLocation = $this->file_location;
@@ -273,7 +273,7 @@ class EntityGroup extends Model
 
         // Return raw data if not base64 and type is directly servable (excluding office/archive types meant for external viewers)
         if (!$isBase64 && in_array($this->type, ['voice', 'image', 'pdf', 'video'])) {
-             return $this->getFileData() ?? '';
+            return $this->getFileData() ?? '';
         }
 
         // Handle base64 encoding for embeddable types
@@ -328,7 +328,7 @@ class EntityGroup extends Model
         }
 
         if ($this->type === 'spreadsheet') {
-          return Storage::disk('excel')->exists($this->file_location);
+            return Storage::disk('excel')->exists($this->file_location);
         } elseif ($this->type === 'powerpoint') {
             return Storage::disk('powerpoint')->exists($this->file_location);
         } elseif ($this->type === 'archive') {

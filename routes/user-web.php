@@ -178,9 +178,8 @@ Route::middleware('auth:web')->group(function () {
                 Route::get('/serve/{fileId?}', [FileController::class, 'serveRawFile'])
                     ->name('serve.raw')->withoutMiddleware([
                       'auth:web',
-                      'convert.obfuscatedId-entityGroup',
                       'check.permission.folder-and-file-management',
-                  ]);;
+                  ]);
             });
 
             Route::post('/upload/{folderId?}', [FileController::class, 'upload'])->name('upload');
