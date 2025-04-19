@@ -25,7 +25,7 @@
       v-else
       :src="file"
       class="w-[70%]  m-auto shadow-cardUni rounded-xl"
-      alt="image projects">
+      alt="در انتظار پردازش">
   </div>
 </template>
 
