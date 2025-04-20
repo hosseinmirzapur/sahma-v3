@@ -7,7 +7,7 @@
       sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
     />
     <div v-else class="flex items-center justify-center h-full">
-      <p>Unable to display document.</p>
+      <p>این فایل قابل نمایش نیست</p>
     </div>
   </div>
 </template>

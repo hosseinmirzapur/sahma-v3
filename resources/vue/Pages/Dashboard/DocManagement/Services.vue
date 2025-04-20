@@ -13,7 +13,7 @@
   />
 
   <!-- Container for viewers - Make this fill the available height -->
-  <div class="h-full w-full">
+  <div class="min-h-screen w-full">
     <!-- External Viewer for Office/Archive Files -->
     <ExternalViewer
       v-if="component === 'ExternalViewer'"
