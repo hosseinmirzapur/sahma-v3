@@ -295,12 +295,20 @@ class Folder extends Model
         $entityGroups = EntityGroup::query()->where('parent_folder_id', $this->id)->get();
 
         foreach ($entityGroups as $entityGroup) {
-            $fileData = $entityGroup->generateFileDataForEmbedding(false);
-            $fileContent = $fileData['fileContent'] ?? '';
-            $fileName = $fileData['fileName'] ?? '';
+            // Determine the correct disk and path for the entityGroup
+            $originalDisk = $entityGroup->getDisk(); // Assuming EntityGroup has a getDisk() method
+            $originalPath = $entityGroup->file_location;
 
-            if (Storage::disk('zip')->put("$currentDirectory/$fileName", $fileContent) === false) {
-                throw new Exception('Failed to write data for zip');
+            // Check if the file exists on the original disk
+            if (Storage::disk($originalDisk)->exists($originalPath)) {
+                // Copy the raw file content to the temporary directory
+                $fileName = $entityGroup->name; // Use the actual file name
+                $tempPath = "$currentDirectory/$fileName";
+                Storage::disk('zip')->put($tempPath, Storage::disk($originalDisk)->get($originalPath));
+            } else {
+                // Handle the case where the file is missing on the original disk
+                Log::error("File not found on disk '$originalDisk' at path '$originalPath' for EntityGroup ID: {$entityGroup->id}");
+                // You might want to throw an exception or handle this case differently
             }
         }
 

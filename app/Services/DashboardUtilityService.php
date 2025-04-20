@@ -380,11 +380,29 @@ class DashboardUtilityService
                 ->whereIn('id', $fileIds)
                 ->lock()
                 ->each(function (EntityGroup $entityGroup) use ($baseFolder) {
-                    $fileData = $entityGroup->generateFileDataForEmbedding(false);
-                    $fileContent = $fileData['fileContent'] ?? '';
-                    $fileName = $fileData['fileName'] ?? '';
-                    if (Storage::disk('zip')->put("$baseFolder/$fileName", $fileContent) === false) {
-                        throw new Exception('Failed to write data for zip');
+                    // Determine the correct disk and path for the entityGroup
+                    $originalDisk = match ($entityGroup->type) {
+                        'spreadsheet' => 'excel',
+                        'powerpoint' => 'powerpoint',
+                        'archive' => 'archive',
+                        'word' => 'word',
+                        'pdf' => 'pdf',
+                        'image' => 'image',
+                        'voice' => 'voice',
+                        'video' => 'video',
+                        default => $entityGroup->type, // Should not happen if type is valid
+                    };
+                    $originalPath = $entityGroup->file_location;
+
+                    // Check if the file exists on the original disk
+                    if (Storage::disk($originalDisk)->exists($originalPath)) {
+                        // Copy the raw file content to the temporary directory
+                        $tempPath = "$baseFolder/" . $entityGroup->name;
+                        Storage::disk('zip')->put($tempPath, Storage::disk($originalDisk)->get($originalPath));
+                    } else {
+                        // Handle the case where the file is missing on the original disk
+                        Log::error("File not found on disk '$originalDisk' at path '$originalPath' for EntityGroup ID: {$entityGroup->id}");
+                        // You might want to throw an exception or handle this case differently
                     }
                 });
         }, 3);
