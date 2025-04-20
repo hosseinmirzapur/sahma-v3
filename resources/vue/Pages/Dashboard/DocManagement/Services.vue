@@ -12,47 +12,50 @@
     @print-file="handleEmittedPrint"
   />
 
-  <!-- External Viewer for Office/Archive Files -->
-  <ExternalViewer
-    v-if="component === 'ExternalViewer'"
-    :externalViewerUrl="externalViewerUrl"
-  />
+  <!-- Container for viewers - Make this fill the available height -->
+  <div class="h-full w-full">
+    <!-- External Viewer for Office/Archive Files -->
+    <ExternalViewer
+      v-if="component === 'ExternalViewer'"
+      :externalViewerUrl="externalViewerUrl"
+    />
 
-  <!-- Existing viewers for other file types -->
-  <template v-else>
-    <IttService
-      v-if="component === 'ITT'"
-      :file="fileContent"
-      :content="file"
-      :search="searchText"
-      :file-type="fileType"
-      :print-route="printRoute"
-      :is-print="isPrint"
-      :is-download="isDownload"
-      @print-action="isPrint = false"
-      @downloa-action="isDownload = false"
-    />
-    <SttService
-      v-if="component === 'STT'"
-      :file="file"
-      :search="searchText"
-      :print-route="printRoute"
-      :list-value="voiceWindows"
-      :is-print="isPrint"
-      :content="fileContent"
-      @print-action="isPrint = false"
-    />
-    <VttService
-      v-if="component === 'VTT'"
-      :file="file"
-      :search="searchText"
-      :print-route="printRoute"
-      :list-value="voiceWindows"
-      :is-print="isPrint"
-      :content="fileContent"
-      @print-action="isPrint = false"
-    />
-  </template>
+    <!-- Existing viewers for other file types -->
+    <template v-else>
+      <IttService
+        v-if="component === 'ITT'"
+        :file="fileContent"
+        :content="file"
+        :search="searchText"
+        :file-type="fileType"
+        :print-route="printRoute"
+        :is-print="isPrint"
+        :is-download="isDownload"
+        @print-action="isPrint = false"
+        @downloa-action="isDownload = false"
+      />
+      <SttService
+        v-if="component === 'STT'"
+        :file="file"
+        :search="searchText"
+        :print-route="printRoute"
+        :list-value="voiceWindows"
+        :is-print="isPrint"
+        :content="fileContent"
+        @print-action="isPrint = false"
+      />
+      <VttService
+        v-if="component === 'VTT'"
+        :file="file"
+        :search="searchText"
+        :print-route="printRoute"
+        :list-value="voiceWindows"
+        :is-print="isPrint"
+        :content="fileContent"
+        @print-action="isPrint = false"
+      />
+    </template>
+  </div>
 </template>
 
 <script setup>
