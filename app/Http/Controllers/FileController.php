@@ -91,17 +91,31 @@ class FileController extends Controller
 
         // Determine component type based on file type
         $type = match ($entityGroup->type) {
-            'pdf', 'image', 'word' => 'ITT',
+            'pdf', 'image' => 'ITT', // Word will now use ExternalViewer
             'voice' => 'STT',
             'video' => 'VTT',
-            // Handle spreadsheet, powerpoint, archive via ExternalViewer later
-            'spreadsheet', 'powerpoint', 'archive' => 'ExternalViewer', // Default component type
+            'word', 'spreadsheet', 'powerpoint', 'archive' => 'ExternalViewer', // Group types using ExternalViewer
             default => throw ValidationException::withMessages(['message' => 'Unsupported file type.'])
         };
 
-        $fileData = $entityGroup->generateFileDataForEmbedding();
-        $fileContent = $fileData['fileContent'] ?? null; // Default to null
-        $fileType = $fileData['fileType'] ?? '';
+        // Initialize props that might be overridden
+        $fileContent = null; // Default to null, ITT/STT/VTT might populate later
+        $fileType = '';      // Default to empty
+        $externalViewerUrl = null; // Initialize external viewer URL
+
+        // Define fileIdParam early for reuse
+        $fileIdParam = ['fileId' => $entityGroup->getEntityGroupId()]; // Use the slug/obfuscated ID
+
+        // Generate external viewer URL for applicable types
+        if (in_array($entityGroup->type, ['word', 'spreadsheet', 'powerpoint'])) {
+            $rawFileUrl = route('web.user.dashboard.file.serve.raw', $fileIdParam);
+            $externalViewerUrl = "https://view.officeapps.live.com/op/embed.aspx?src=" . urlencode($rawFileUrl);
+            $type = 'ExternalViewer'; // Ensure component type is correct
+        } elseif (!in_array($entityGroup->type, ['archive'])) { // Only fetch embeddable content if not using external viewer or archive
+            $fileData = $entityGroup->generateFileDataForEmbedding();
+            $fileContent = $fileData['fileContent'] ?? null;
+            $fileType = $fileData['fileType'] ?? '';
+        }
 
         // Sort voice windows only if necessary
         $voiceWindows = null;
@@ -120,8 +134,7 @@ class FileController extends Controller
 
         $searchedInput = $request->input('searchable_text');
 
-        // Define download routes
-        $fileIdParam = ['fileId' => $entityGroup->getEntityGroupId()]; // Use the slug/obfuscated ID
+        // Define download routes (fileIdParam already defined)
         $downloadRoutes = [
             'original' => route("web.user.dashboard.file.download.original-file", $fileIdParam),
             'searchable' => route("web.user.dashboard.file.download.searchable", $fileIdParam),
@@ -167,22 +180,18 @@ class FileController extends Controller
             'fileType' => $fileType,
             'activities' => ActivityService::getActivityByType($entityGroup),
             'voiceWindows' => $voiceWindows,
-            'component' => $type, // Determined earlier
+            'component' => $type, // Determined earlier, potentially updated for Word/Office
             'searchedInput' => $searchedInput,
             'downloadRoute' => $downloadRoutes, // Pass potentially modified routes
             'printRoute' => in_array($entityGroup->type, ['pdf', 'image', 'word']) // Only allow printing for these types
                 ? route("web.user.dashboard.file.print.original", $fileIdParam)
                 : null,
-            'externalViewerUrl' => null, // Initialize
+            'externalViewerUrl' => $externalViewerUrl, // Pass the generated URL (or null)
         ];
 
-        // Generate external viewer URL for specific types and adjust props
-        if (in_array($entityGroup->type, ['spreadsheet', 'powerpoint'])) { // Archive handled by download
-            $rawFileUrl = route('web.user.dashboard.file.serve.raw', $fileIdParam);
-            $props['externalViewerUrl'] = "https://view.officeapps.live.com/op/embed.aspx?src=" . urlencode($rawFileUrl);
-            $props['component'] = 'ExternalViewer'; // Ensure correct component
-            $props['fileContent'] = null;         // No inline content needed
-        }
+        // Note: The specific external viewer URL generation for spreadsheet/powerpoint
+        // was moved earlier to handle the 'word' case as well.
+        // The props assignment now correctly uses the $externalViewerUrl variable.
 
         // Return the Inertia response with the potentially modified props
         return inertia('Dashboard/DocManagement/Services', $props);
@@ -1195,9 +1204,13 @@ class FileController extends Controller
                 $this->activityService->logUserAction($currentUser, 'MANUAL_PROCESS', $entityGroup, $description); // Define a new activity type
             }
 
+            // Determine the correct redirect URL
+            $backUrl = $entityGroup->parent_folder_id && $entityGroup->parentFolder
+                ? route('web.user.dashboard.folder.show', ['folderId' => $entityGroup->parentFolder->getFolderId()])
+                : route('web.user.dashboard.index');
 
-            return redirect()->route('web.user.dashboard.index') // Or back() ?
-            ->with('message', 'درخواست پردازش دستی ارسال شد.');
+            return redirect()->to($backUrl) // Redirect to the calculated URL
+                ->with('message', 'درخواست پردازش دستی ارسال شد.');
         } else {
             // Should not happen if logic is correct, but handle defensively
             Log::error("Manual process triggered but no job was dispatched for EntityGroup:#{$entityGroup->id}");
