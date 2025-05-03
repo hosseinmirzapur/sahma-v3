@@ -1159,7 +1159,7 @@ class FileController extends Controller
                 break;
             case 'voice':
                 // Check if it needs conversion first
-                if (!$entityGroup->isWav() && !isset($entityGroup->result_location['wav_location'])) {
+                if (!isset($entityGroup->result_location['wav_location'])) {
                     ConvertVoiceToWaveJob::dispatch($entityGroup);
                     $dispatchedJob = ConvertVoiceToWaveJob::class;
                 } else {
