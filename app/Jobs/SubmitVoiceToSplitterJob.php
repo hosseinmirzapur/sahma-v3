@@ -80,6 +80,7 @@ class SubmitVoiceToSplitterJob implements ShouldQueue
                 CreateSplitVoiceToEntitiesJob::dispatch($this->entityGroup);
             } else {
                 Log::info("STT => entityGroup:#$entityGroup->id already got windows");
+                CreateSplitVoiceToEntitiesJob::dispatch($this->entityGroup);
             }
         } catch (Exception $e) {
             $this->fail();
