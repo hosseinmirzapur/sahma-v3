@@ -111,6 +111,12 @@
             <ClockIcon
               v-if="doc?.status === 'STATUS_WAITING_FOR_MANUAL_PROCESS'"
               class="w-5 absolute -top-1 -right-2 shadow-lg text-blue-600 rounded-full animate-pulse"
+              title="در انتظار پردازش دستی"
+            />
+            <SparklesIcon
+              v-if="doc?.status === 'WAITING_FOR_TRANSCRIPTION'"
+              class="w-5 absolute -top-1 -right-2 shadow-lg text-purple-600 rounded-full animate-pulse"
+              title="در حال تبدیل گفتار به متن"
             />
             <ClockIcon
               v-if="
@@ -118,18 +124,22 @@
                 doc?.status === 'WAITING_FOR_SPLIT'
               "
               class="w-5 absolute -top-1 -right-2 shadow-lg text-orange-500 rounded-full"
+              title="در حال پردازش اولیه صوت"
             />
             <CheckCircleIcon
               v-if="doc?.status === 'TRANSCRIBED'"
               class="w-5 absolute -top-1 -right-2 shadow-lg text-green-700 rounded-full"
+              title="پردازش انجام شد"
             />
             <ExclamationCircleIcon
               v-if="doc?.status === 'WAITING_FOR_RETRY'"
               class="w-5 absolute -top-1 -right-2 shadow-lg text-yellow-400 rounded-full"
+              title="در انتظار تلاش مجدد"
             />
             <XCircleIcon
               v-if="doc?.status === 'REJECTED'"
               class="w-5 absolute -top-1 -right-2 shadow-lg text-red-500 rounded-full"
+              title="پردازش رد شد"
             />
             <!-- type files icons-->
             <div
@@ -782,6 +792,7 @@ import {
   CheckCircleIcon,
   ExclamationCircleIcon,
   XCircleIcon,
+  SparklesIcon,
 } from "@heroicons/vue/24/solid";
 import { useForm, usePage } from "@inertiajs/inertia-vue3";
 import { Inertia } from "@inertiajs/inertia";
