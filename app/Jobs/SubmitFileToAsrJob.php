@@ -53,8 +53,13 @@ class SubmitFileToAsrJob implements ShouldQueue
   public function handle(AiService $aiService, OfficeService $officeService): void
   {
     try {
-      if ($this->entityGroup->status != EntityGroup::STATUS_WAITING_FOR_TRANSCRIPTION) {
-        Log::info("ASR => entityGroup:#{$this->entityGroup->id} is not in ASR state");
+      if (
+        !in_array($this->entityGroup->status, [
+          EntityGroup::STATUS_WAITING_FOR_TRANSCRIPTION,
+          EntityGroup::STATUS_WAITING_FOR_MANUAL_PROCESS // Allow if manually triggered and this is the next step
+        ])
+      ) {
+        Log::info("ASR => entityGroup:#{$this->entityGroup->id} (status: {$this->entityGroup->status}) is not in a state to start ASR processing by this job.");
         return;
       }
       Log::info("ASR => Submit entityGroup:#{$this->entityGroup->id} to ASR: calling ASR");
