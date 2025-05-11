@@ -395,15 +395,15 @@ class DashboardUtilityService
                     $originalPath = $entityGroup->file_location;
 
                     // Check if the file exists on the original disk
-                    if (Storage::disk($originalDisk)->exists($originalPath)) {
-                        // Copy the raw file content to the temporary directory
-                        $tempPath = "$baseFolder/" . $entityGroup->name;
-                        Storage::disk('zip')->put($tempPath, Storage::disk($originalDisk)->get($originalPath));
-                    } else {
-                        // Handle the case where the file is missing on the original disk
-                        Log::error("File not found on disk '$originalDisk' at path '$originalPath' for EntityGroup ID: {$entityGroup->id}");
-                        // You might want to throw an exception or handle this case differently
-                    }
+                if (Storage::disk($originalDisk)->exists($originalPath)) {
+                    // Copy the raw file content to the temporary directory
+                    $tempPath = "$baseFolder/" . $entityGroup->name;
+                    Storage::disk('zip')->put($tempPath, Storage::disk($originalDisk)->get($originalPath));
+                } else {
+                    // Handle the case where the file is missing on the original disk
+                    Log::error("File not found on disk '$originalDisk' at path '$originalPath' for EntityGroup ID: {$entityGroup->id}");
+                    // You might want to throw an exception or handle this case differently
+                }
                 });
         }, 3);
 

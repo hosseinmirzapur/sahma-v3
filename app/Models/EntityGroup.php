@@ -204,13 +204,13 @@ class EntityGroup extends Model
                 if ($this->type == 'word') {
                     $disk = 'pdf';
                     $fileLocation = $this->result_location['converted_word_to_pdf'] ?? '';
-                } else if ($this->type === 'spreadsheet') {
+                } elseif ($this->type === 'spreadsheet') {
                     $disk = 'excel';
                     $fileLocation = $this->file_location;
-                } else if ($this->type === 'powerpoint') {
+                } elseif ($this->type === 'powerpoint') {
                     $disk = 'powerpoint';
                     $fileLocation = $this->file_location;
-                } else if ($this->type === 'archive') {
+                } elseif ($this->type === 'archive') {
                     $disk = 'archive';
                     $fileLocation = $this->file_location;
                 } else {

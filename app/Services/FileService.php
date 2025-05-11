@@ -796,7 +796,6 @@ class FileService
             ]);
             // Log validation success
             Log::info("File validation passed for User: #{$user->id}, File: {$file->getClientOriginalName()}");
-
         } catch (ValidationException $e) {
             // Log validation failure with specific errors
             Log::error(
