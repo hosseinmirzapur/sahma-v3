@@ -80,7 +80,10 @@ const props = defineProps({
   voiceWindows: { type: Array, required: true },
   component: { type: String, required: true },
   searchedInput: { type: String, default: "" },
-  downloadRoute: { type: String, default: "" },
+  downloadRoute: {
+    type: Object,
+    default: () => ({ original: null, searchable: null, word: null }),
+  },
   printRoute: { type: String, required: true },
   activities: { type: Array, required: true },
   externalViewerUrl: { type: String, default: null }, // Add the new prop

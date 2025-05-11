@@ -224,7 +224,10 @@ const props = defineProps({
   parentFolder: { type: String, default: null },
   file: { type: Object, required: true },
   searchedInput: { type: String, default: "" },
-  downloadRoute: { type: String, required: true },
+  downloadRoute: {
+    type: Object,
+    default: () => ({ original: null, searchable: null, word: null }),
+  },
   fileType: { type: String, required: true },
   activities: { type: Array, required: true },
   aiServiceMode: { type: String },
@@ -318,7 +321,13 @@ function conditionItems(name) {
     case "print":
       return "";
     case "download":
-      return props.downloadRoute ? "" : "!hidden";
+      // The main download button should be visible if any download route is available.
+      // The dropdown itself will handle individual link visibility.
+      return props.downloadRoute?.original ||
+        props.downloadRoute?.searchable ||
+        props.downloadRoute?.word
+        ? ""
+        : "!hidden";
     default:
       return name;
   }
@@ -393,7 +402,11 @@ const download = () => {
 function downloadPdf(file, type) {
   isDownloadDropDown.value = false;
   const link = document.createElement("a");
-  link.href = props.downloadRoute?.searchable;
+  if (!props.downloadRoute?.searchable) {
+    console.warn("Searchable download route is not available.");
+    return;
+  }
+  link.href = props.downloadRoute.searchable;
   link.target = "_blank"; // Open the link in a new tab/window
   link.download = `${file.name}.${type}`; // Specify the desired download filename
 
@@ -403,7 +416,11 @@ function downloadPdf(file, type) {
 function DownloadWord(file, type) {
   isDownloadDropDown.value = false;
   const link = document.createElement("a");
-  link.href = props.downloadRoute?.word;
+  if (!props.downloadRoute?.word) {
+    console.warn("Word download route is not available.");
+    return;
+  }
+  link.href = props.downloadRoute.word;
   link.target = "_blank"; // Open the link in a new tab/window
   link.download = `${file.name}.${type}`; // Specify the desired download filename
 
@@ -413,7 +430,11 @@ function DownloadWord(file, type) {
 function DownloadOriginal(file, type) {
   isDownloadDropDown.value = false;
   const link = document.createElement("a");
-  link.href = props.downloadRoute?.original;
+  if (!props.downloadRoute?.original) {
+    console.warn("Original download route is not available.");
+    return;
+  }
+  link.href = props.downloadRoute.original;
   link.target = "_blank"; // Open the link in a new tab/window
   link.download = `${file.name}.${type}`; // Specify the desired download filename
 
