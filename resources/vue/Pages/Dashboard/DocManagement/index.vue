@@ -114,7 +114,6 @@
             />
             <ClockIcon
               v-if="
-                doc?.status === 'WAITING_FOR_TRANSCRIPTION' ||
                 doc?.status === 'WAITING_FOR_AUDIO_SEPARATION' ||
                 doc?.status === 'WAITING_FOR_SPLIT'
               "
