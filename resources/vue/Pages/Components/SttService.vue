@@ -10,7 +10,9 @@
     <div
       class="w-[70%] m-auto shadow-cardUni rounded-xl sticky top-0 bg-white z-10"
     >
-      <div class="text-center text-sm text-gray-600 mb-2">{{ file.name }}</div>
+      <div class="text-center text-sm text-gray-600 mb-2 p-2">
+        {{ file.name }}.{{ file.extension }}
+      </div>
       <div
         class="sm:flex md:flex-row flex-col items-center gap-2 rounded-full border border-black/24 bg-white p-2"
         dir="ltr"
@@ -56,7 +58,7 @@
 
     <!--    result clickable-->
     <div
-      v-if="editableListValue || editableListValue?.length > 0"
+      v-if="editableListValue && editableListValue.length > 0"
       class="max-w-[70%] m-auto p-5 text-base border border-green-400 mt-5 rounded-xl my-5 bg-green-50"
     >
       <div
@@ -65,6 +67,21 @@
         class="inline-flex group relative"
       >
         <div
+          v-if="index !== editingIndex"
+          :ref="
+            (el) => {
+              if (el) textRefs[index] = el;
+            }
+          "
+          @click.prevent="selectValue(item, index)"
+          @dblclick="enableEditing(index)"
+          class="m-2 p-2 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-400"
+        >
+          <!-- eslint-disable vue/no-v-html -->
+          <span v-html="highlightedObject[index]" />
+        </div>
+        <div
+          v-else
           :ref="
             (el) => {
               if (el) textRefs[index] = el;
@@ -72,40 +89,19 @@
           "
           contenteditable="true"
           @blur="saveEdit(index, $event)"
-          @click.prevent="selectValue(item, index)"
-          class="m-2 p-1 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-400"
+          class="m-2 p-2 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-400"
         >
-          <!-- eslint-disable vue/no-v-html -->
-          <span v-html="highlightedObject[index]" />
+          {{ item }}
         </div>
-        <button
-          class="absolute top-0 right-0 mt-1 mr-1 opacity-0 group-hover:opacity-100 text-gray-500 hover:text-gray-700 focus:outline-none"
-          @click="startEdit(index)"
-          aria-label="Edit"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z"
-            />
-          </svg>
-        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onUpdated, watch } from "vue";
+import { ref, computed, onUpdated, watch, nextTick } from "vue";
 import { PlayIcon, PauseIcon } from "@heroicons/vue/24/solid";
+import axios from "axios"; // Import axios
 
 defineOptions({
   name: "SttService",
@@ -119,6 +115,7 @@ const props = defineProps({
   isPrint: { type: Boolean, required: false },
   printRoute: { type: String, required: true },
 });
+
 const playing = ref(false);
 const audioRef = ref(null);
 const duration = ref(0);
@@ -127,12 +124,26 @@ const drag = ref(false);
 const countSearch = ref(0);
 const emits = defineEmits(["print-action", "download-action", "update-text"]);
 
-const editableListValue = ref([...props.listValue]);
+// Initialize editableListValue safely, ensuring it's always an array
+const editableListValue = ref(
+  Array.isArray(props.listValue) ? [...props.listValue] : [],
+);
 const textRefs = ref([]);
+const editingIndex = ref(-1); // To track which item is being edited
 
 onUpdated(() => {
   props.search ? countHighlight() : (countSearch.value = 0);
 });
+
+function enableEditing(index) {
+  editingIndex.value = index;
+  // Use nextTick to ensure the element is rendered before focusing
+  nextTick(() => {
+    if (textRefs.value[index]) {
+      textRefs.value[index].focus();
+    }
+  });
+}
 
 watch(() => props.isPrint, printPDF);
 
@@ -140,7 +151,8 @@ watch(() => props.isPrint, printPDF);
 watch(
   () => props.listValue,
   (newValue) => {
-    editableListValue.value = [...newValue];
+    // Ensure newValue is an array before spreading
+    editableListValue.value = Array.isArray(newValue) ? [...newValue] : [];
   },
 );
 
@@ -243,14 +255,30 @@ function saveEdit(index, event) {
   editableListValue.value[index] = updatedText;
   // Call function to send update to backend
   sendUpdateToBackend(index, updatedText);
+  // Reset editing index
+  editingIndex.value = -1;
 }
 
 function sendUpdateToBackend(index, text) {
-  // TODO: Implement backend communication here
-  // This function should send the updated text for the specific chunk (at 'index')
-  // to your backend API to update the source data and potentially trigger word file regeneration.
-  console.log(`Sending update to backend: Index ${index}, Text: ${text}`);
-  // Example: axios.post('/api/update-asr-text', { index: index, text: text, fileId: props.file.id });
+  const fileId = props.file.slug; // Get the file slug from props
+  const url = route("web.user.dashboard.file.update-asr-text", {
+    fileId: fileId,
+  });
+
+  axios
+    .post(url, {
+      index: index,
+      text: text,
+    })
+    .then((response) => {
+      console.log("ASR text updated successfully:", response.data.message);
+      // Optionally, show a success message to the user
+    })
+    .catch((error) => {
+      console.error("Error updating ASR text:", error);
+      // Optionally, show an error message to the user
+      // You might want to revert the local change if the backend update fails
+    });
 }
 </script>
 
