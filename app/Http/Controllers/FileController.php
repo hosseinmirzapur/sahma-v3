@@ -125,11 +125,21 @@ class FileController extends Controller
       && $entityGroup->status === EntityGroup::STATUS_TRANSCRIBED
       && is_array($entityGroup->result_location) // Check if result_location is an array
     ) {
-      $voiceWindows = Arr::get($entityGroup->result_location, 'voice_windows', []);
-      if (is_array($voiceWindows)) {
-        ksort($voiceWindows);
+      $rawVoiceWindows = Arr::get($entityGroup->result_location, 'voice_windows', []);
+      if (is_array($rawVoiceWindows)) {
+        // Transform the associative array into an array of objects
+        $voiceWindows = collect($rawVoiceWindows)
+          ->map(function ($text, $startTime) {
+            return [
+              'start_time' => (int) $startTime, // Ensure start_time is an integer
+              'text' => $text,
+            ];
+          })
+          ->sortBy('start_time') // Sort by the new start_time property
+          ->values() // Reset keys to 0, 1, 2...
+          ->all();
       } else {
-        $voiceWindows = []; // Ensure it's an array if ksort fails
+        $voiceWindows = []; // Ensure it's an array if rawVoiceWindows is not
       }
     }
 

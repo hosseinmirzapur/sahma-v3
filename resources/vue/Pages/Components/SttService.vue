@@ -91,7 +91,7 @@
           @blur="saveEdit(index, $event)"
           class="m-2 p-2 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-400"
         >
-          {{ item }}
+          {{ item.text }}
         </div>
       </div>
     </div>
@@ -106,11 +106,16 @@ import axios from "axios"; // Import axios
 defineOptions({
   name: "SttService",
 });
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+
 const props = defineProps({
   file: { type: Object, required: true },
   content: { type: String, required: true },
-  listValue: { type: Array, required: true },
+  // Updated prop type to expect an array of objects
+  listValue: {
+    type: Array,
+    required: true,
+    default: () => [], // Provide a default empty array
+  },
   search: { type: String, default: "" },
   isPrint: { type: Boolean, required: false },
   printRoute: { type: String, required: true },
@@ -124,12 +129,14 @@ const drag = ref(false);
 const countSearch = ref(0);
 const emits = defineEmits(["print-action", "download-action", "update-text"]);
 
-// Initialize editableListValue safely, ensuring it's always an array
+// Initialize editableListValue safely, ensuring it's always an array of objects
 const editableListValue = ref(
-  Array.isArray(props.listValue) ? [...props.listValue] : [],
+  Array.isArray(props.listValue)
+    ? props.listValue.map((item) => ({ ...item })) // Deep copy items
+    : [],
 );
 const textRefs = ref([]);
-const editingIndex = ref(-1); // To track which item is being edited
+const editingIndex = ref(-1); // To track which item is being edited (using array index for local UI state)
 
 onUpdated(() => {
   props.search ? countHighlight() : (countSearch.value = 0);
@@ -151,8 +158,10 @@ watch(() => props.isPrint, printPDF);
 watch(
   () => props.listValue,
   (newValue) => {
-    // Ensure newValue is an array before spreading
-    editableListValue.value = Array.isArray(newValue) ? [...newValue] : [];
+    // Ensure newValue is an array before mapping and spreading
+    editableListValue.value = Array.isArray(newValue)
+      ? newValue.map((item) => ({ ...item }))
+      : [];
   },
 );
 
@@ -180,23 +189,16 @@ function countHighlight() {
 
 const highlightedObject = computed(() => {
   const searchRegex = new RegExp(props.search, "gi");
-  // Use editableListValue for highlighting
-  return highlightObjectText(searchRegex, editableListValue.value);
+  const highlighted = {};
+  // Iterate over editableListValue (array of objects)
+  editableListValue.value.forEach((item, index) => {
+    highlighted[index] = item.text.replace(
+      searchRegex,
+      (match) => `<mark class="bg-primary/20">${match}</mark>`,
+    );
+  });
+  return highlighted;
 });
-// Your highlightObjectText function
-const highlightObjectText = (searchRegex, objectValue) => {
-  const highlightedObject = {};
-  for (const key in objectValue) {
-    // eslint-disable-next-line no-prototype-builtins
-    if (objectValue.hasOwnProperty(key)) {
-      highlightedObject[key] = objectValue[key].replace(
-        searchRegex,
-        (match) => `<mark  class="bg-primary/20 ">${match}</mark>`,
-      );
-    }
-  }
-  return highlightedObject;
-};
 
 function togglePlay() {
   playing.value = !playing.value;
@@ -235,10 +237,11 @@ function secondsToDuration(s) {
   return ` ${m}  : ${s} `;
 }
 
-function selectValue(value, sec) {
+// Updated selectValue to use item.start_time
+function selectValue(item, index) {
   playVoice();
-  if (audioRef.value) {
-    audioRef.value.currentTime = Math.round(sec);
+  if (audioRef.value && item.start_time !== undefined) {
+    audioRef.value.currentTime = Math.round(item.start_time);
     audioRef.value.play();
   }
 }
@@ -249,17 +252,26 @@ function startEdit(index) {
   }
 }
 
+// Updated saveEdit to use item.start_time when calling sendUpdateToBackend
 function saveEdit(index, event) {
   const updatedText = event.target.innerText;
-  // Update the local editableListValue
-  editableListValue.value[index] = updatedText;
-  // Call function to send update to backend
-  sendUpdateToBackend(index, updatedText);
+  const item = editableListValue.value[index]; // Get the item with start_time
+
+  if (item && item.start_time !== undefined) {
+    // Update the local editableListValue
+    editableListValue.value[index].text = updatedText;
+    // Call function to send update to backend, using start_time as the identifier
+    sendUpdateToBackend(item.start_time, updatedText);
+  } else {
+    console.error("Could not find item or start_time for index:", index);
+  }
+
   // Reset editing index
   editingIndex.value = -1;
 }
 
-function sendUpdateToBackend(index, text) {
+// Updated sendUpdateToBackend to use startTime as the index parameter
+function sendUpdateToBackend(startTime, text) {
   const fileId = props.file.slug; // Get the file slug from props
   const url = route("web.user.dashboard.file.update-asr-text", {
     fileId: fileId,
@@ -267,7 +279,7 @@ function sendUpdateToBackend(index, text) {
 
   axios
     .post(url, {
-      index: index,
+      index: startTime, // Send the start_time as the index
       text: text,
     })
     .then((response) => {
