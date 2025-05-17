@@ -1,5 +1,10 @@
 <template>
   <div class="min-h-screen w-full">
+    <!-- Display filename -->
+    <div v-if="fileName" class="text-center text-sm text-gray-600 mb-2 p-2">
+      {{ fileName }}.{{ fileExtension }}
+    </div>
+
     <iframe
       v-if="externalViewerUrl"
       :src="externalViewerUrl"
@@ -17,6 +22,15 @@ defineProps({
   externalViewerUrl: {
     type: String,
     required: true,
+  },
+  // Add new props for filename and extension
+  fileName: {
+    type: String,
+    default: "",
+  },
+  fileExtension: {
+    type: String,
+    default: "",
   },
 });
 </script>

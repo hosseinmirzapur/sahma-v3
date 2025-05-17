@@ -200,6 +200,12 @@ class FileController extends Controller
       'externalViewerUrl' => $externalViewerUrl, // Pass the generated URL (or null)
     ];
 
+    // Add file name and extension to props if using ExternalViewer or ITT
+    if (in_array($type, ['ExternalViewer', 'ITT'])) {
+      $props['fileName'] = pathinfo($entityGroup->name, PATHINFO_FILENAME);
+      $props['fileExtension'] = pathinfo($entityGroup->name, PATHINFO_EXTENSION);
+    }
+
     // Note: The specific external viewer URL generation for spreadsheet/powerpoint
     // was moved earlier to handle the 'word' case as well.
     // The props assignment now correctly uses the $externalViewerUrl variable.

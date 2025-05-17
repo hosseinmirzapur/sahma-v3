@@ -18,6 +18,8 @@
     <ExternalViewer
       v-if="component === 'ExternalViewer'"
       :externalViewerUrl="externalViewerUrl"
+      :fileName="file.name"
+      :fileExtension="file.extension"
     />
 
     <!-- Existing viewers for other file types -->
