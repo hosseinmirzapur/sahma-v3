@@ -1263,20 +1263,24 @@ class FileController extends Controller
     $voiceWindows = $entityGroup->result_location['voice_windows'];
 
     $foundKey = null;
-    // Find the key (original start time) that matches the received start_time
-    foreach ($voiceWindows as $key => $text) {
-      // Compare the received start_time with the keys (original start times)
-      // Cast both to float for comparison to handle potential floating-point values
-      // Using a small tolerance is safer for floating-point comparisons
-      if (abs((float) $key - (float) $startTime) < 0.001) { // Use a small tolerance
-        $foundKey = $key;
+    $tolerance = 0.001; // Define tolerance for floating-point comparison
+
+    // Find the key (original start time string) that matches the received start_time (numeric)
+    foreach ($voiceWindows as $keyString => $text) {
+      // Convert the string key to float for comparison
+      $keyFloat = (float) $keyString;
+
+      // Compare the received start_time (already numeric due to validation) with the key float
+      // Use a small tolerance for floating-point comparisons
+      if (abs($keyFloat - $startTime) < $tolerance) {
+        $foundKey = $keyString; // Keep the original string key for updating the array
         break;
       }
     }
 
     // Check if a matching key was found
     if ($foundKey === null) {
-      Log::error("Matching voice window key not found for received start time: {$startTime} for EntityGroup ID: {$entityGroup->id}.");
+      Log::error("Matching voice window key not found for received start time: {$startTime} for EntityGroup ID: {$entityGroup->id}. Available keys: " . implode(', ', array_keys($voiceWindows)));
       return response()->json(['message' => 'Invalid text chunk start time.'], 400);
     }
 
