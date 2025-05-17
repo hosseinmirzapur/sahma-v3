@@ -1239,8 +1239,9 @@ class FileController extends Controller
    */
   public function updateAsrText(Request $request)
   {
+    // Update validation to allow float for the start_time
     $request->validate([
-      'index' => 'required|integer|min:0',
+      'index' => 'required|numeric|min:0', // Use numeric to allow integers and floats
       'text' => 'required|string',
     ]);
 
@@ -1257,17 +1258,30 @@ class FileController extends Controller
       return response()->json(['message' => 'Invalid file type or ASR data not available.'], 400);
     }
 
-    $index = $request->input('index');
+    $startTime = $request->input('index'); // Received start_time from frontend
     $updatedText = $request->input('text');
     $voiceWindows = $entityGroup->result_location['voice_windows'];
 
-    // Check if the index is valid
-    if (!array_key_exists($index, $voiceWindows)) {
-      return response()->json(['message' => 'Invalid text chunk index.'], 400);
+    $foundKey = null;
+    // Find the key (original start time) that matches the received start_time
+    foreach ($voiceWindows as $key => $text) {
+      // Compare the received start_time with the keys (original start times)
+      // Cast both to float for comparison to handle potential floating-point values
+      // Using a small tolerance is safer for floating-point comparisons
+      if (abs((float) $key - (float) $startTime) < 0.001) { // Use a small tolerance
+        $foundKey = $key;
+        break;
+      }
     }
 
-    // Update the text
-    $voiceWindows[$index] = $updatedText;
+    // Check if a matching key was found
+    if ($foundKey === null) {
+      Log::error("Matching voice window key not found for received start time: {$startTime} for EntityGroup ID: {$entityGroup->id}.");
+      return response()->json(['message' => 'Invalid text chunk start time.'], 400);
+    }
+
+    // Update the text using the found original key
+    $voiceWindows[$foundKey] = $updatedText;
 
     // Update the result_location with the modified voice_windows
     $resultLocation = $entityGroup->result_location;
@@ -1279,7 +1293,7 @@ class FileController extends Controller
 
     // TODO: Dispatch a job to regenerate the Word file based on the updated ASR data.
     // Example: RegenerateWordFileJob::dispatch($entityGroup);
-    Log::info("ASR text updated for EntityGroup:#{$entityGroup->id} at index {$index}. Word file regeneration job needs to be dispatched.");
+    Log::info("ASR text updated for EntityGroup:#{$entityGroup->id} at start time {$foundKey}. Word file regeneration job needs to be dispatched.");
 
 
     return response()->json(['message' => 'ASR text updated successfully.']);

@@ -63,7 +63,7 @@
     >
       <div
         v-for="(item, index) in editableListValue"
-        :key="index"
+        :key="item.start_time"
         class="inline-flex group relative"
       >
         <div
@@ -73,7 +73,7 @@
               if (el) textRefs[index] = el;
             }
           "
-          @click.prevent="selectValue(item, index)"
+          @click.prevent="selectValue(item)"
           @dblclick="enableEditing(index)"
           class="m-2 p-2 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-400"
         >
@@ -88,7 +88,7 @@
             }
           "
           contenteditable="true"
-          @blur="saveEdit(index, $event)"
+          @blur="saveEdit(item.start_time, $event)"
           class="m-2 p-2 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-400"
         >
           {{ item.text }}
@@ -127,7 +127,12 @@ const duration = ref(0);
 const currentTime = ref(0);
 const drag = ref(false);
 const countSearch = ref(0);
-const emits = defineEmits(["print-action", "download-action", "update-text"]);
+const emits = defineEmits([
+  "search-data",
+  "print-file",
+  "download-file",
+  "update-text",
+]); // Added update-text emit
 
 // Initialize editableListValue safely, ensuring it's always an array of objects
 const editableListValue = ref(
@@ -238,7 +243,8 @@ function secondsToDuration(s) {
 }
 
 // Updated selectValue to use item.start_time
-function selectValue(item, index) {
+function selectValue(item) {
+  // Removed index parameter
   playVoice();
   if (audioRef.value && item.start_time !== undefined) {
     audioRef.value.currentTime = Math.round(item.start_time);
@@ -253,17 +259,21 @@ function startEdit(index) {
 }
 
 // Updated saveEdit to use item.start_time when calling sendUpdateToBackend
-function saveEdit(index, event) {
+function saveEdit(startTime, event) {
+  // Changed index parameter to startTime
   const updatedText = event.target.innerText;
-  const item = editableListValue.value[index]; // Get the item with start_time
+  // Find the item in editableListValue based on startTime to update locally
+  const itemIndex = editableListValue.value.findIndex(
+    (item) => item.start_time === startTime,
+  );
 
-  if (item && item.start_time !== undefined) {
+  if (itemIndex !== -1) {
     // Update the local editableListValue
-    editableListValue.value[index].text = updatedText;
+    editableListValue.value[itemIndex].text = updatedText;
     // Call function to send update to backend, using start_time as the identifier
-    sendUpdateToBackend(item.start_time, updatedText);
+    sendUpdateToBackend(startTime, updatedText);
   } else {
-    console.error("Could not find item or start_time for index:", index);
+    console.error("Could not find item with start_time:", startTime);
   }
 
   // Reset editing index
@@ -279,7 +289,7 @@ function sendUpdateToBackend(startTime, text) {
 
   axios
     .post(url, {
-      index: startTime, // Send the start_time as the index
+      index: startTime, // Send the exact start_time as the index
       text: text,
     })
     .then((response) => {

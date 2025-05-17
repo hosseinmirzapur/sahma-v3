@@ -509,4 +509,15 @@ function executePrint() {
   transform: translateY(10px);
   opacity: 0;
 }
+
+.tooltip {
+  min-width: 100px; /* Adjust the max-width as needed */
+  white-space: normal; /* Allow text wrapping */
+  word-wrap: break-word; /* Break long words */
+  overflow-wrap: break-word; /* Break long words */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: -10px;
+}
 </style>
