@@ -258,30 +258,22 @@ function startEdit(index) {
   }
 }
 
-// Updated saveEdit to use item.start_time when calling sendUpdateToBackend
-function saveEdit(startTime, event) {
-  // Changed index parameter to startTime
+// Updated saveEdit to use array index when calling sendUpdateToBackend
+function saveEdit(index, event) {
+  // Reverted parameter back to index
   const updatedText = event.target.innerText;
-  // Find the item in editableListValue based on startTime to update locally
-  const itemIndex = editableListValue.value.findIndex(
-    (item) => item.start_time === startTime,
-  );
-
-  if (itemIndex !== -1) {
-    // Update the local editableListValue
-    editableListValue.value[itemIndex].text = updatedText;
-    // Call function to send update to backend, using start_time as the identifier
-    sendUpdateToBackend(startTime, updatedText);
-  } else {
-    console.error("Could not find item with start_time:", startTime);
-  }
+  // Update the local editableListValue
+  editableListValue.value[index].text = updatedText;
+  // Call function to send update to backend, using the array index
+  sendUpdateToBackend(index, updatedText);
 
   // Reset editing index
   editingIndex.value = -1;
 }
 
-// Updated sendUpdateToBackend to use startTime as the index parameter
-function sendUpdateToBackend(startTime, text) {
+// Updated sendUpdateToBackend to use index parameter
+function sendUpdateToBackend(index, text) {
+  // Changed parameter back to index
   const fileId = props.file.slug; // Get the file slug from props
   const url = route("web.user.dashboard.file.update-asr-text", {
     fileId: fileId,
@@ -289,7 +281,7 @@ function sendUpdateToBackend(startTime, text) {
 
   axios
     .post(url, {
-      index: startTime, // Send the exact start_time as the index
+      index: index, // Send the array index
       text: text,
     })
     .then((response) => {

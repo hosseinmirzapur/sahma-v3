@@ -1239,9 +1239,9 @@ class FileController extends Controller
    */
   public function updateAsrText(Request $request)
   {
-    // Update validation to allow float for the start_time
+    // Update validation to expect an integer index
     $request->validate([
-      'index' => 'required|numeric|min:0', // Use numeric to allow integers and floats
+      'index' => 'required|integer|min:0', // Expecting array index now
       'text' => 'required|string',
     ]);
 
@@ -1258,34 +1258,30 @@ class FileController extends Controller
       return response()->json(['message' => 'Invalid file type or ASR data not available.'], 400);
     }
 
-    $startTime = $request->input('index'); // Received start_time from frontend
+    $receivedIndex = $request->input('index'); // Received array index from frontend
     $updatedText = $request->input('text');
     $voiceWindows = $entityGroup->result_location['voice_windows'];
 
-    $foundKey = null;
-    $tolerance = 0.001; // Define tolerance for floating-point comparison
+    // Sort the voice windows by key (start time) to match frontend order
+    ksort($voiceWindows);
 
-    // Find the key (original start time string) that matches the received start_time (numeric)
-    foreach ($voiceWindows as $keyString => $text) {
-      // Convert the string key to float for comparison
-      $keyFloat = (float) $keyString;
+    // Convert the sorted associative array to a simple indexed array
+    $indexedVoiceWindows = array_values($voiceWindows);
 
-      // Compare the received start_time (already numeric due to validation) with the key float
-      // Use a small tolerance for floating-point comparisons
-      if (abs($keyFloat - $startTime) < $tolerance) {
-        $foundKey = $keyString; // Keep the original string key for updating the array
-        break;
-      }
+    // Check if the received index is valid for the indexed array
+    if (!array_key_exists($receivedIndex, $indexedVoiceWindows)) {
+      Log::error("Invalid array index received for EntityGroup ID: {$entityGroup->id}. Received index: {$receivedIndex}. Array size: " . count($indexedVoiceWindows));
+      return response()->json(['message' => 'Invalid text chunk index.'], 400);
     }
 
-    // Check if a matching key was found
-    if ($foundKey === null) {
-      Log::error("Matching voice window key not found for received start time: {$startTime} for EntityGroup ID: {$entityGroup->id}. Available keys: " . implode(', ', array_keys($voiceWindows)));
-      return response()->json(['message' => 'Invalid text chunk start time.'], 400);
-    }
+    // Find the original key (start time) corresponding to the received index
+    // We need the original key to update the associative array correctly
+    $originalKeys = array_keys($voiceWindows);
+    $originalKeyToUpdate = $originalKeys[$receivedIndex];
 
-    // Update the text using the found original key
-    $voiceWindows[$foundKey] = $updatedText;
+
+    // Update the text in the original associative array using the original key
+    $voiceWindows[$originalKeyToUpdate] = $updatedText;
 
     // Update the result_location with the modified voice_windows
     $resultLocation = $entityGroup->result_location;
@@ -1297,7 +1293,7 @@ class FileController extends Controller
 
     // TODO: Dispatch a job to regenerate the Word file based on the updated ASR data.
     // Example: RegenerateWordFileJob::dispatch($entityGroup);
-    Log::info("ASR text updated for EntityGroup:#{$entityGroup->id} at start time {$foundKey}. Word file regeneration job needs to be dispatched.");
+    Log::info("ASR text updated for EntityGroup:#{$entityGroup->id} at array index {$receivedIndex} (original start time: {$originalKeyToUpdate}). Word file regeneration job needs to be dispatched.");
 
 
     return response()->json(['message' => 'ASR text updated successfully.']);
