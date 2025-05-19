@@ -8,6 +8,7 @@ use App\Jobs\SubmitFileToAsrJob;
 use App\Jobs\SubmitFileToOcrJob;
 use App\Jobs\CreateSplitVoiceToEntitiesJob;
 use App\Jobs\SubmitVoiceToSplitterJob;
+use App\Jobs\RegenerateWordFileJob; // Import the new job
 use App\Models\Activity;
 use App\Models\DepartmentFile;
 use App\Models\EntityGroup;
@@ -1297,8 +1298,8 @@ class FileController extends Controller
     // Save the updated EntityGroup
     $entityGroup->save();
 
-    // TODO: Dispatch a job to regenerate the Word file based on the updated ASR data.
-    // Example: RegenerateWordFileJob::dispatch($entityGroup);
+    RegenerateWordFileJob::dispatch($entityGroup);
+
     Log::info("ASR text updated for EntityGroup:#{$entityGroup->id} at array index {$receivedIndex} (original start time: {$originalKeyToUpdate}). Word file regeneration job needs to be dispatched.");
 
 
