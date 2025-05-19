@@ -258,6 +258,7 @@ return [
         'connection' => 'redis-long-running',
         'queue' => [
           'file::submit-to-ASR',
+          'file::regenerate-word'
         ],
         'balance' => 'simple',
         'processes' => 1,
