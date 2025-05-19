@@ -1,5 +1,5 @@
 <template>
-  <div class="mx-auto mt-10">
+  <div class="mx-auto mt-10 w-[70%]">
     <!-- audio player -->
     <div
       :class="countSearch > 0 ? '' : 'opacity-0'"
@@ -7,9 +7,7 @@
     >
       {{ countSearch }} مورد یافت شد
     </div>
-    <div
-      class="w-[70%] m-auto shadow-cardUni rounded-xl sticky top-0 bg-white z-10"
-    >
+    <div class="m-auto shadow-cardUni rounded-xl sticky top-0 bg-white z-10">
       <div class="text-center text-sm text-gray-600 mb-2 p-2"></div>
       {{ file.name }}.{{ file.extension }}
     </div>
