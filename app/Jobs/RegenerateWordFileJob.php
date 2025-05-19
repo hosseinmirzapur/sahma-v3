@@ -38,9 +38,16 @@ class RegenerateWordFileJob implements ShouldQueue
   public function handle(OfficeService $officeService): void
   {
     try {
+      // Set status to indicate Word regeneration is in progress
+      $this->entityGroup->status = EntityGroup::STATUS_REGENERATING_WORD;
+      $this->entityGroup->save();
+
       // Ensure the entity group has voice windows data
       if (!isset($this->entityGroup->result_location['voice_windows']) || !is_array($this->entityGroup->result_location['voice_windows'])) {
         Log::warning("RegenerateWordFileJob: EntityGroup:#{$this->entityGroup->id} does not have voice_windows data. Cannot regenerate Word file.");
+        // Optionally set a different status here if data is missing
+        $this->entityGroup->status = EntityGroup::STATUS_WAITING_FOR_RETRY; // Or a new specific status
+        $this->entityGroup->save();
         return;
       }
 
@@ -63,6 +70,10 @@ class RegenerateWordFileJob implements ShouldQueue
       $this->entityGroup->result_location = $resultLocation;
       $this->entityGroup->save();
 
+      // Set status back to TRANSCRIBED on successful completion
+      $this->entityGroup->status = EntityGroup::STATUS_TRANSCRIBED;
+      $this->entityGroup->save();
+
       Log::info("RegenerateWordFileJob: Word file regenerated successfully for EntityGroup:#{$this->entityGroup->id}. New location: {$newWordFileLocation}");
 
       // Optional: Clean up the old word file if needed.
@@ -72,6 +83,7 @@ class RegenerateWordFileJob implements ShouldQueue
 
     } catch (Exception $e) {
       Log::error("RegenerateWordFileJob: Failed to regenerate Word file for EntityGroup:#{$this->entityGroup->id}. Error: " . $e->getMessage());
+      // Set status to retry on failure
       $this->fail($e); // Mark the job as failed
     }
   }
@@ -83,8 +95,7 @@ class RegenerateWordFileJob implements ShouldQueue
   {
     // Log the failure or notify users/admins
     Log::error("RegenerateWordFileJob failed for EntityGroup:#{$this->entityGroup->id}. Exception: " . $exception->getMessage());
-    // You might want to update the EntityGroup status to indicate a failure in Word regeneration
-    // $this->entityGroup->status = EntityGroup::STATUS_WORD_REGENERATION_FAILED;
-    // $this->entityGroup->save();
+    $this->entityGroup->status = EntityGroup::STATUS_WAITING_FOR_RETRY; // Or a new specific status
+    $this->entityGroup->save();
   }
 }

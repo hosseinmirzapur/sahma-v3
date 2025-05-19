@@ -13,6 +13,13 @@
       <div class="text-center text-sm text-gray-600 mb-2 p-2">
         {{ file.name }}.{{ file.extension }}
       </div>
+      <!-- Display status when regenerating word -->
+      <div
+        v-if="file.status === 'REGENERATING_WORD'"
+        class="text-center text-sm text-blue-500 mb-2 p-2"
+      >
+        در حال بازسازی فایل ورد...
+      </div>
       <div
         class="sm:flex md:flex-row flex-col items-center gap-2 rounded-full border border-black/24 bg-white p-2"
         dir="ltr"
