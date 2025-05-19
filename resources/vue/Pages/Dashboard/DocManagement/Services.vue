@@ -69,6 +69,7 @@ import SttService from "../../Components/SttService.vue";
 import VttService from "../../Components/VttService.vue";
 import ExternalViewer from "../../Components/ExternalViewer.vue";
 import { ref } from "vue";
+import { Inertia } from "@inertiajs/inertia";
 
 defineOptions({
   name: "Services",
