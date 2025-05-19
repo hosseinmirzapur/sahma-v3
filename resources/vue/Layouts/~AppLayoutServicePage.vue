@@ -1,8 +1,9 @@
 <template>
   <div class="mx-5">
     <main
-      class="relative top-[5rem] h-[calc(100vh-6.25rem)] overflow-y-auto w-full relative mt-5"
-      v-bind="$attrs">
+      class="relative top-[5rem] h-[calc(100vh-6.25rem)] overflow-y-auto w-full mt-5"
+      v-bind="$attrs"
+    >
       <section>
         <slot />
       </section>
@@ -11,17 +12,15 @@
 </template>
 
 <script setup>
-
 // eslint-disable-next-line no-undef
 defineOptions({
-  name: '~AppLayoutServicePage'
-})
+  name: "~AppLayoutServicePage",
+});
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const props = defineProps({
-  authUser: { type: Object, required: true }
-})
-
+  authUser: { type: Object, required: true },
+});
 </script>
 
 <style lang="scss">

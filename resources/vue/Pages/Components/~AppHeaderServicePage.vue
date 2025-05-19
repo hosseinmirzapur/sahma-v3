@@ -1,4 +1,3 @@
-\
 <template>
   <header class="fixed m-auto top-5 right-0 left-0 bottom-auto w-full bg-white">
     <div
@@ -74,10 +73,13 @@
           </div>
         </div>
         <div v-else class="flex items-center gap-x-3.5">
-          <div v-for="(item, i) in options.slice(-3)" :key="i" class="relative">
+          <div v-for="(item, i) in options.slice(-4)" :key="i" class="relative">
             <button
               type="button"
               class="bg-white rounded-md p-2 shadow-cardUni hover:!bg-white/80 hover:shadow-btnUni"
+              :class="{
+                'animate-spin': item.name === 'refresh' && isRefreshing,
+              }"
               @mouseover="actionTooltip(item.name, true)"
               @mouseout="actionTooltip(item.name, false)"
               @click.stop.prevent="choiceFunction(item)"
@@ -204,6 +206,7 @@ import {
   DocumentDuplicateIcon,
   ArrowDownTrayIcon,
   PrinterIcon,
+  ArrowPathIcon,
 } from "@heroicons/vue/24/outline";
 import { Inertia } from "@inertiajs/inertia";
 import { onBeforeUnmount, reactive, ref, watch } from "vue";
@@ -217,7 +220,14 @@ defineOptions({
   name: "HeaderServicePage",
 });
 
-const emits = defineEmits(["search-data", "print-file", "download-file"]);
+const isRefreshing = ref(false);
+
+const emits = defineEmits([
+  "search-data",
+  "print-file",
+  "download-file",
+  "refresh-data",
+]);
 
 const props = defineProps({
   authUser: { type: Object, required: true },
@@ -259,6 +269,11 @@ const options = [
     icon: ArrowSmallLeftIcon,
     route: "#",
   },
+  {
+    name: "refresh",
+    icon: ArrowPathIcon,
+    route: "#",
+  },
 ];
 const isAlert = ref(false);
 const isCopy = ref(false);
@@ -268,6 +283,7 @@ const textTooltip = reactive({
   download: false,
   back: false,
   info: false,
+  refresh: false,
 });
 const isDownloadDropDown = ref(false);
 const isInfoModal = ref(false);
@@ -309,6 +325,8 @@ function dicTooltips(name) {
       return "تاریخچه";
     case "back":
       return "بازگشت";
+    case "refresh":
+      return "به‌روزرسانی";
     default:
       return name;
   }
@@ -355,9 +373,23 @@ function choiceFunction(item) {
     case "copy":
       copyContent(props.file?.transcribeResult);
       break;
+    case "refresh":
+      handleRefresh();
+      break;
     default:
       return null;
   }
+}
+
+function handleRefresh() {
+  isRefreshing.value = true;
+  emits("refresh-data");
+  // Assuming the parent component handles the data fetching and updates the props,
+  // we can set isRefreshing back to false after a short delay or when a prop updates.
+  // For now, a short delay is used as a placeholder.
+  setTimeout(() => {
+    isRefreshing.value = false;
+  }, 1000); // Adjust delay as needed
 }
 
 function tryAgain(file) {

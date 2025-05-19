@@ -10,96 +10,96 @@
     <div
       class="w-[70%] m-auto shadow-cardUni rounded-xl sticky top-0 bg-white z-10"
     >
-      <div class="text-center text-sm text-gray-600 mb-2 p-2">
-        {{ file.name }}.{{ file.extension }}
+      <div class="text-center text-sm text-gray-600 mb-2 p-2"></div>
+      {{ file.name }}.{{ file.extension }}
+    </div>
+    <!-- Display status when regenerating word -->
+    <div
+      v-if="file.status === 'REGENERATING_WORD'"
+      class="text-center text-sm text-blue-500 mb-2 p-2 flex items-center justify-center"
+    >
+      <ArrowPathIcon class="w-5 h-5 mr-2 animate-spin" />
+      در حال بازسازی فایل ورد...
+    </div>
+    <div
+      class="sm:flex md:flex-row flex-col items-center gap-2 rounded-full border border-black/24 bg-white p-2"
+      dir="ltr"
+    >
+      <div class="flex flex-1 gap-x-1">
+        <audio
+          ref="audioRef"
+          :src="content"
+          loop
+          @loadedmetadata="duration = $event.target.duration"
+          @timeupdate="currentTime = parseInt($event.target.currentTime)"
+        />
+        <button
+          name="پخش"
+          class="bg-primary rounded-full text-white p-1"
+          :class="playing ? '' : 'animate-pulse'"
+          @click="togglePlay"
+        >
+          <PauseIcon v-if="playing" class="w-5 h-5" />
+          <PlayIcon v-else class="w-5 h-5" />
+        </button>
+        <!-- progress -->
+        <input
+          ref="seekSlider"
+          v-model="currentTime"
+          type="range"
+          :max="duration"
+          class="progress custom-progress grow"
+          step="1"
+          @input="dragging"
+        />
       </div>
-      <!-- Display status when regenerating word -->
-      <div
-        v-if="file.status === 'REGENERATING_WORD'"
-        class="text-center text-sm text-blue-500 mb-2 p-2"
-      >
-        در حال بازسازی فایل ورد...
-      </div>
-      <div
-        class="sm:flex md:flex-row flex-col items-center gap-2 rounded-full border border-black/24 bg-white p-2"
-        dir="ltr"
-      >
-        <div class="flex flex-1 gap-x-1">
-          <audio
-            ref="audioRef"
-            :src="content"
-            loop
-            @loadedmetadata="duration = $event.target.duration"
-            @timeupdate="currentTime = parseInt($event.target.currentTime)"
-          />
-          <button
-            name="پخش"
-            class="bg-primary rounded-full text-white p-1"
-            :class="playing ? '' : 'animate-pulse'"
-            @click="togglePlay"
-          >
-            <PauseIcon v-if="playing" class="w-5 h-5" />
-            <PlayIcon v-else class="w-5 h-5" />
-          </button>
-          <!-- progress -->
-          <input
-            ref="seekSlider"
-            v-model="currentTime"
-            type="range"
-            :max="duration"
-            class="progress custom-progress grow"
-            step="1"
-            @input="dragging"
-          />
-        </div>
-        <!-- timer-->
-        <div class="flex justify-center text-primary mx-2">
-          <div class="flex gap-x-1 text-sm font-medium ml-3">
-            <p v-text="secondsToDuration(currentTime)" />
-            <p>/</p>
-            <p v-text="secondsToDuration(duration)" />
-          </div>
+      <!-- timer-->
+      <div class="flex justify-center text-primary mx-2">
+        <div class="flex gap-x-1 text-sm font-medium ml-3">
+          <p v-text="secondsToDuration(currentTime)" />
+          <p>/</p>
+          <p v-text="secondsToDuration(duration)" />
         </div>
       </div>
     </div>
+  </div>
 
-    <!--    result clickable-->
+  <!--    result clickable-->
+  <div
+    v-if="editableListValue && editableListValue.length > 0"
+    class="max-w-[70%] m-auto p-5 text-base border border-green-400 mt-5 rounded-xl my-5 bg-green-50"
+  >
     <div
-      v-if="editableListValue && editableListValue.length > 0"
-      class="max-w-[70%] m-auto p-5 text-base border border-green-400 mt-5 rounded-xl my-5 bg-green-50"
+      v-for="(item, index) in editableListValue"
+      :key="item.start_time"
+      class="inline-flex group relative"
     >
       <div
-        v-for="(item, index) in editableListValue"
-        :key="item.start_time"
-        class="inline-flex group relative"
+        v-if="index !== editingIndex"
+        :ref="
+          (el) => {
+            if (el) textRefs[index] = el;
+          }
+        "
+        @click.prevent="selectValue(item)"
+        @dblclick="enableEditing(index)"
+        class="m-2 p-2 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-400"
       >
-        <div
-          v-if="index !== editingIndex"
-          :ref="
-            (el) => {
-              if (el) textRefs[index] = el;
-            }
-          "
-          @click.prevent="selectValue(item)"
-          @dblclick="enableEditing(index)"
-          class="m-2 p-2 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-400"
-        >
-          <!-- eslint-disable vue/no-v-html -->
-          <span v-html="highlightedObject[index]" />
-        </div>
-        <div
-          v-else
-          :ref="
-            (el) => {
-              if (el) textRefs[index] = el;
-            }
-          "
-          contenteditable="true"
-          @blur="saveEdit(item.start_time, $event)"
-          class="m-2 p-2 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-400"
-        >
-          {{ item.text }}
-        </div>
+        <!-- eslint-disable vue/no-v-html -->
+        <span v-html="highlightedObject[index]" />
+      </div>
+      <div
+        v-else
+        :ref="
+          (el) => {
+            if (el) textRefs[index] = el;
+          }
+        "
+        contenteditable="true"
+        @blur="saveEdit(index, $event)"
+        class="m-2 p-2 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-400"
+      >
+        {{ item.text }}
       </div>
     </div>
   </div>
@@ -107,7 +107,7 @@
 
 <script setup>
 import { ref, computed, onUpdated, watch, nextTick } from "vue";
-import { PlayIcon, PauseIcon } from "@heroicons/vue/24/solid";
+import { PlayIcon, PauseIcon, ArrowPathIcon } from "@heroicons/vue/24/solid"; // Import ArrowPathIcon
 import axios from "axios"; // Import axios
 
 defineOptions({
