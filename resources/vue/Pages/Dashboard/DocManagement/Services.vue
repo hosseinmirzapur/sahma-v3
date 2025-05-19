@@ -10,6 +10,7 @@
     :file-type="fileType"
     @search-data="onSearchData"
     @print-file="handleEmittedPrint"
+    @refresh-data="handleRefreshData"
   />
 
   <!-- Container for viewers - Make this fill the available height -->
@@ -106,4 +107,8 @@ function handleEmittedPrint() {
 // function handleEmittedDownload () {
 //   isDownload.value = true
 // }
+
+function handleRefreshData() {
+  Inertia.reload();
+}
 </script>
