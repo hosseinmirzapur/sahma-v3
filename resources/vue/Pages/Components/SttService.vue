@@ -8,8 +8,6 @@
     </div>
 
     <div class="sticky top-0 z-10 bg-white shadow-md">
-      {/* Added shadow-md for better visual separation */}
-
       <div class="m-auto shadow-cardUni rounded-xl bg-white">
         <div class="text-center text-sm text-gray-600 mb-2 p-2">
           {{ file.name }}.{{ file.extension }}
