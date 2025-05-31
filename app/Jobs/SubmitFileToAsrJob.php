@@ -96,26 +96,39 @@ class SubmitFileToAsrJob implements ShouldQueue
       $wordFileLocation = $officeService->generateWordFile($this->entityGroup, $textASR);
 
       DB::transaction(function () use ($textASR, $generateWindowsEntityGroup, $wordFileLocation) {
+        Log::info("ASR => DB Transaction: Starting for entityGroup ID: {$this->entityGroup->id}");
+
         /** @var EntityGroup $entityGroup */
         $entityGroup = EntityGroup::query()
           ->lockForUpdate()
           ->find($this->entityGroup->id);
 
-        $result = $entityGroup->result_location ?? [];
+        if (!$entityGroup) {
+          Log::error("ASR => DB Transaction: EntityGroup not found for ID: {$this->entityGroup->id}");
+          return; // Or throw an exception
+        }
+
+        Log::info("ASR => DB Transaction: EntityGroup found. result_location before cast: " . json_encode($entityGroup->result_location));
+        $result = (array) ($entityGroup->result_location ?? []);
+        Log::info("ASR => DB Transaction: result_location after cast: " . json_encode($result));
+
         $result['voice_windows'] = $generateWindowsEntityGroup;
         $result['word_location'] = $wordFileLocation;
+        Log::info("ASR => DB Transaction: result array updated: " . json_encode($result));
 
         $entityGroup->transcription_result = $textASR;
         $entityGroup->transcription_at = now();
         $entityGroup->result_location = $result;
         $entityGroup->status = EntityGroup::STATUS_TRANSCRIBED;
         $entityGroup->save();
+        Log::info("ASR => DB Transaction: EntityGroup saved. Status: {$entityGroup->status}");
 
         $activity = new Activity();
         $activity->user_id = $this->user->id;
         $activity->status = Activity::TYPE_TRANSCRIPTION;
         $activity->activity()->associate($entityGroup);
         $activity->save();
+        Log::info("ASR => DB Transaction: Activity saved.");
       }, 3);
 
       $splitLocation = dirname($this->entityGroup->file_location) . '/' . $this->entityGroup->id;
