@@ -22,7 +22,7 @@
           <div class="flex flex-1 items-center gap-x-2 w-full">
             <audio
               ref="audioRef"
-              :src="content"
+              :src="externalViewerUrl"
               loop
               @loadedmetadata="duration = $event.target.duration"
               @timeupdate="currentTime = parseInt($event.target.currentTime)"
@@ -117,7 +117,8 @@ defineOptions({
 
 const props = defineProps({
   file: { type: Object, required: true },
-  content: { type: String, required: true },
+  // content: { type: String, required: true }, // Removed
+  externalViewerUrl: { type: String, required: false, default: null }, // Added
   listValue: {
     type: Array,
     required: true,

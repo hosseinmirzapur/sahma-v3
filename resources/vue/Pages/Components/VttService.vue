@@ -35,7 +35,7 @@
           :controls="playing"
           class="w-full mx-auto rounded-2xl sm:aspect-video aspect-auto"
         >
-          <source :src="content" type="video/mp4" />
+          <source :src="externalViewerUrl" type="video/mp4" />
           Your browser does not support the video tag.
         </video>
       </div>
@@ -69,7 +69,8 @@ defineOptions({
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const props = defineProps({
   file: { type: Object, required: true },
-  content: { type: String, required: true },
+  // content: { type: String, required: true }, // Removed
+  externalViewerUrl: { type: String, required: false, default: null }, // Added
   listValue: { type: Array, required: true },
   search: { type: String, default: "" },
   isPrint: { type: Boolean, required: false },

@@ -109,11 +109,19 @@ class FileController extends Controller
     $fileIdParam = ['fileId' => $entityGroup->getEntityGroupId()]; // Use the slug/obfuscated ID
 
     // Generate external viewer URL for applicable types
-    if (in_array($entityGroup->type, ['word', 'spreadsheet', 'powerpoint'])) {
+    if (in_array($entityGroup->type, ['word', 'spreadsheet', 'powerpoint', 'voice', 'video'])) { // Add voice and video here
       $rawFileUrl = route('web.user.dashboard.file.serve.raw', $fileIdParam);
-      $externalViewerUrl = "https://view.officeapps.live.com/op/embed.aspx?src=" . urlencode($rawFileUrl);
-      $type = 'ExternalViewer'; // Ensure component type is correct
-    } elseif (!in_array($entityGroup->type, ['archive'])) { // Only fetch embeddable content if not using external viewer or archive
+      // For audio/video, we don't need the officeapps viewer, just the raw URL
+      if (in_array($entityGroup->type, ['voice', 'video'])) {
+        $externalViewerUrl = $rawFileUrl; // Direct URL for audio/video
+        $type = $entityGroup->type === 'voice' ? 'STT' : 'VTT'; // Keep original component type
+      } else {
+        $externalViewerUrl = "https://view.officeapps.live.com/op/embed.aspx?src=" . urlencode($rawFileUrl);
+        $type = 'ExternalViewer'; // For office documents
+      }
+      $fileContent = null; // Ensure fileContent is null as it will be streamed
+      $fileType = null; // Ensure fileType is null
+    } elseif (!in_array($entityGroup->type, ['archive'])) { // This branch is now only for pdf/image
       $fileData = $entityGroup->generateFileDataForEmbedding();
       $fileContent = $fileData['fileContent'] ?? null;
       $fileType = $fileData['fileType'] ?? '';
