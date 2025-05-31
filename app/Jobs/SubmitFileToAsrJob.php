@@ -70,15 +70,24 @@ class SubmitFileToAsrJob implements ShouldQueue
       foreach ($entities as $entity) {
         $filePath = Storage::disk('voice')->path($entity->file_location);
         $ASRResult = $aiService->submitToASR($filePath);
-        $contentASRResultCsv = strval($ASRResult['tsv']);
+        $safeASRResult = [];
+        if (is_array($ASRResult)) {
+          $safeASRResult['tsv'] = $ASRResult['tsv'] ?? '';
+          $safeASRResult['text'] = $ASRResult['text'] ?? '';
+        } else {
+          Log::error("ASR => ASRResult is not an array for entity:#{$entity->id}", ['ASRResult' => $ASRResult]);
+          $safeASRResult = ['tsv' => '', 'text' => ''];
+        }
+
+        $contentASRResultCsv = strval($safeASRResult['tsv']);
         $csvFileLocation = $officeService->generateCsvFileEntity($contentASRResultCsv);
 
-        $meta = $entity->meta ?? [];
+        $meta = (array) ($entity->meta ?? []);
         $meta['csv_location'] = $csvFileLocation;
-        $entity->transcription_result = strval($ASRResult['text']);
+        $entity->transcription_result = strval($safeASRResult['text']);
         $entity->meta = $meta;
         $entity->save();
-        $textASR .= ' ' . strval($ASRResult['text']);
+        $textASR .= ' ' . strval($safeASRResult['text']);
       }
 
       Log::info("ASR => ASR has been finished for entityGroup:#{$this->entityGroup->id}");
