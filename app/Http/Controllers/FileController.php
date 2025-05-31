@@ -31,6 +31,7 @@ use Inertia\Response;
 use Inertia\ResponseFactory;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Http\Response as IlluminateResponse;
+use App\Helper\AudioHelper; // Import AudioHelper
 
 class FileController extends Controller
 {
@@ -193,6 +194,24 @@ class FileController extends Controller
         : route('web.user.dashboard.index'),
     ];
 
+    // Add duration for voice/video files
+    if (in_array($entityGroup->type, ['voice', 'video'])) {
+      $diskName = match ($entityGroup->type) {
+        'voice' => 'voice',
+        'video' => 'video',
+        default => null,
+      };
+      if ($diskName && $entityGroup->file_location) {
+        $absolutePath = Storage::disk($diskName)->path($entityGroup->file_location);
+        try {
+          $file['duration_in_seconds'] = AudioHelper::getAudioDurationByFfprobe($absolutePath);
+        } catch (Exception $e) {
+          Log::error("Failed to get duration for EntityGroup ID: {$entityGroup->id}. Error: " . $e->getMessage());
+          $file['duration_in_seconds'] = null; // Set to null if duration cannot be retrieved
+        }
+      }
+    }
+
     // Prepare props for Inertia view
     $props = [
       'file' => $file,
@@ -261,6 +280,7 @@ class FileController extends Controller
 
     $storage = Storage::disk($diskName);
     $path = $entityGroup->file_location;
+
 
     if (!$storage->exists($path)) {
       Log::error("File path {$path} not found on disk '{$diskName}' for EntityGroup ID: {$entityGroup->id}. Storage inconsistency?");

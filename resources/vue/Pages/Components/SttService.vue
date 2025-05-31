@@ -24,7 +24,10 @@
               ref="audioRef"
               :src="externalViewerUrl"
               loop
-              @loadedmetadata="duration = $event.target.duration"
+              @loadedmetadata="
+                if (!props.file.duration_in_seconds)
+                  duration = $event.target.duration;
+              "
               @timeupdate="currentTime = parseInt($event.target.currentTime)"
               class="hidden"
             />
@@ -41,7 +44,7 @@
               ref="seekSlider"
               v-model="currentTime"
               type="range"
-              :max="duration || 0"
+              :max="duration"
               class="progress custom-progress grow mx-2"
               step="1"
               @input="dragging"
@@ -107,7 +110,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onUpdated, watch, nextTick } from "vue";
+import { ref, computed, onUpdated, watch, nextTick, onMounted } from "vue";
 import { PlayIcon, PauseIcon, ArrowPathIcon } from "@heroicons/vue/24/solid";
 import axios from "axios";
 
@@ -117,8 +120,7 @@ defineOptions({
 
 const props = defineProps({
   file: { type: Object, required: true },
-  // content: { type: String, required: true }, // Removed
-  externalViewerUrl: { type: String, required: false, default: null }, // Added
+  externalViewerUrl: { type: String, required: false, default: null },
   listValue: {
     type: Array,
     required: true,
@@ -131,7 +133,7 @@ const props = defineProps({
 
 const playing = ref(false);
 const audioRef = ref(null);
-const duration = ref(0);
+const duration = ref(props.file.duration_in_seconds || 0); // Initialize duration from prop
 const currentTime = ref(0);
 const drag = ref(false);
 const countSearch = ref(0);
@@ -246,7 +248,9 @@ function dragging() {
 }
 
 function secondsToDuration(s) {
-  if (isNaN(s) || s < 0) s = 0;
+  if (isNaN(s) || s < 0) {
+    s = 0;
+  }
   let m = Math.floor(s / 60);
   s = Math.floor(s % 60);
   return `${String(m).padStart(2, "0")} : ${String(s).padStart(2, "0")}`;
@@ -298,6 +302,12 @@ function sendUpdateToBackend(index, text) {
       console.error("Error updating ASR text:", error);
     });
 }
+
+onMounted(() => {
+  if (props.externalViewerUrl) {
+    console.log("External viewer URL is set:", props.externalViewerUrl);
+  }
+});
 </script>
 
 <style scoped>

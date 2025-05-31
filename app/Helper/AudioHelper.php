@@ -94,7 +94,7 @@ class AudioHelper
    * @param string $absoluteFilePath
    * @return float|null Duration in seconds or null on failure.
    */
-  private static function getAudioDurationByFfprobe(string $absoluteFilePath): ?float
+  public static function getAudioDurationByFfprobe(string $absoluteFilePath): ?float
   {
     try {
       $ffprobe = FFProbe::create([

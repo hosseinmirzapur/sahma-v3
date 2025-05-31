@@ -45,6 +45,7 @@
         :list-value="voiceWindows"
         :is-print="isPrint"
         :content="fileContent"
+        :externalViewerUrl="externalViewerUrl"
         @print-action="isPrint = false"
       />
       <VttService
@@ -55,6 +56,7 @@
         :list-value="voiceWindows"
         :is-print="isPrint"
         :content="fileContent"
+        :externalViewerUrl="externalViewerUrl"
         @print-action="isPrint = false"
       />
     </template>
