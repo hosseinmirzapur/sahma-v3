@@ -92,8 +92,13 @@ class SubmitFileToAsrJob implements ShouldQueue
 
       Log::info("ASR => ASR has been finished for entityGroup:#{$this->entityGroup->id}");
 
+      Log::info("ASR => Calling generateWindowsEntityGroup for entityGroup:#{$this->entityGroup->id}");
       $generateWindowsEntityGroup = $officeService->generateWindowsEntityGroup($this->entityGroup);
+      Log::info("ASR => generateWindowsEntityGroup returned: " . json_encode($generateWindowsEntityGroup));
+
+      Log::info("ASR => Calling generateWordFile for entityGroup:#{$this->entityGroup->id}");
       $wordFileLocation = $officeService->generateWordFile($this->entityGroup, $textASR);
+      Log::info("ASR => generateWordFile returned: " . json_encode($wordFileLocation));
 
       DB::transaction(function () use ($textASR, $generateWindowsEntityGroup, $wordFileLocation) {
         Log::info("ASR => DB Transaction: Starting for entityGroup ID: {$this->entityGroup->id}");

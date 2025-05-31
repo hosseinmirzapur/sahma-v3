@@ -853,7 +853,12 @@ class FileService
     // Read each line from the CSV file and parse it into an array
     /** @phpstan-ignore-next-line */
     while (($row = fgetcsv($csvFile, 0, "\t")) !== false) {
-      // $row is now an array containing values from the CSV line
+      // Ensure the row has enough columns
+      if (count($row) < 3) {
+        Log::warning("FileService => getAudioInfo: Skipping malformed CSV row. Row: " . json_encode($row));
+        continue; // Skip this row if it doesn't have enough columns
+      }
+
       $start = $row[0];
       $end = $row[1];
       $text = $row[2];
