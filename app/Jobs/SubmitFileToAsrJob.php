@@ -113,7 +113,9 @@ class SubmitFileToAsrJob implements ShouldQueue
       Storage::disk('voice')->deleteDirectory($splitLocation);
       /* @var  Entity $entity */
       foreach ($entities as $entity) {
-        Storage::disk('csv')->delete($entity->meta['csv_location'] ?? '');
+        if (is_array($entity->meta) && isset($entity->meta['csv_location'])) {
+          Storage::disk('csv')->delete($entity->meta['csv_location']);
+        }
       }
       Log::info("ASR => delete all entities file in storage for entityGroup:#{$this->entityGroup->id}");
     } catch (Exception $e) {
