@@ -7,47 +7,47 @@ use Illuminate\Database\Eloquent\Collection;
 
 class UserService
 {
-    public function getUserInfo(User $adminUser): array
-    {
-        $usersQuery = User::query()->whereNull('deleted_at');
+  public function getUserInfo(User $adminUser): array
+  {
+    $usersQuery = User::query()->whereNull('deleted_at')->whereNot('personal_id', 1);
 
-        if (!$adminUser->is_super_admin) {
-            $usersQuery->where('created_by', $adminUser->id);
-        }
-
-        $users = $usersQuery->with(['role.permission', 'userDepartments'])->get();
-
-        return $this->getUsersDepartments($users);
+    if (!$adminUser->is_super_admin) {
+      $usersQuery->where('created_by', $adminUser->id);
     }
 
-    /**
-     * @param Collection<int, User> $users
-     * @return array
-     */
-    public function getUsersDepartments(Collection $users): array
-    {
-        return $users->map(function (User $user) {
-            return [
-                'id' => $user->id,
-                'name' => $user->name,
-                'personalId' => $user->personal_id,
-                'roleTitle' => $user->role->title,
-                'departments' => $user->userDepartments->toArray(),
-                'permission' => $this->determinePermission($user),
-            ];
-        })->toArray();
+    $users = $usersQuery->with(['role.permission', 'userDepartments'])->get();
+
+    return $this->getUsersDepartments($users);
+  }
+
+  /**
+   * @param Collection<int, User> $users
+   * @return array
+   */
+  public function getUsersDepartments(Collection $users): array
+  {
+    return $users->map(function (User $user) {
+      return [
+        'id' => $user->id,
+        'name' => $user->name,
+        'personalId' => $user->personal_id,
+        'roleTitle' => $user->role->title,
+        'departments' => $user->userDepartments->toArray(),
+        'permission' => $this->determinePermission($user),
+      ];
+    })->toArray();
+  }
+
+  private function determinePermission(User $user): string
+  {
+    if ($user->is_super_admin) {
+      return 'super_admin';
     }
 
-    private function determinePermission(User $user): string
-    {
-        if ($user->is_super_admin) {
-            return 'super_admin';
-        }
-
-        return match (true) {
-            (bool)$user->role->permission->full => 'full',
-            (bool)$user->role->permission->modify => 'modify',
-            default => 'read_only',
-        };
-    }
+    return match (true) {
+      (bool) $user->role->permission->full => 'full',
+      (bool) $user->role->permission->modify => 'modify',
+      default => 'read_only',
+    };
+  }
 }
